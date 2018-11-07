@@ -32,21 +32,25 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
     @Override
     public void configure() throws Exception {
 
+        super.configure();
+
         rest("api")
                 .get("/trip-updates").to("direct:kishar.get.tripUpdates")
                 .get("/vehicle-positions").to("direct:kishar.get.vehiclePositions")
                 .get("/alerts").to("direct:kishar.get.alerts")
         ;
 
-
         from("direct:kishar.get.tripUpdates")
                 .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
+                .routeId("kishar.get.gtfsrt.tripupdates")
         ;
         from("direct:kishar.get.vehiclePositions")
                 .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
+                .routeId("kishar.get.gtfsrt.vehiclepositions")
         ;
         from("direct:kishar.get.alerts")
                 .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
+                .routeId("kishar.get.gtfsrt.alerts")
         ;
 
 

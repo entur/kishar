@@ -24,6 +24,8 @@ public class LivenessRoute extends RestRouteBuilder {
     @Override
     public void configure() throws Exception {
 
+        super.configure();
+
         rest("health/").tag("health")
                 .get("ready").to("direct:ready")
                 .get("up").to("direct:up")
