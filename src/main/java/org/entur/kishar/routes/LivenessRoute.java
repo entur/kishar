@@ -26,17 +26,10 @@ public class LivenessRoute extends RestRouteBuilder {
 
         super.configure();
 
-        rest("health/").tag("health")
-                .get("ready").to("direct:ready")
-                .get("up").to("direct:up")
-                .get("healthy").to("direct:healthy")
-                .get("favicon.ico").to("direct:notfound")
-        ;
-
-        //To avoid large stacktraces in the log when fetching data using browser
-        from("direct:notfound")
-                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("404"))
-                .routeId("health.notfound")
+        rest("health")
+                .get("/ready").to("direct:ready")
+                .get("/up").to("direct:up")
+                .get("/healthy").to("direct:healthy")
         ;
 
         // Application is ready to accept traffic
