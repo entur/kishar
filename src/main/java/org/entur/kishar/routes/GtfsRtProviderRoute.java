@@ -34,25 +34,20 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
 
         super.configure();
 
-        rest("api")
-                .get("/trip-updates").to("direct:kishar.get.tripUpdates")
-                .get("/vehicle-positions").to("direct:kishar.get.vehiclePositions")
-                .get("/alerts").to("direct:kishar.get.alerts")
+        rest("/api/")
+                .get("trip-updates")
+                    .route()
+                        .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
+                    .endRest()
+                .get("vehicle-positions")
+                    .route()
+                        .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
+                    .endRest()
+                .get("alerts")
+                    .route()
+                        .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
+                    .endRest()
         ;
-
-        from("direct:kishar.get.tripUpdates")
-                .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
-                .routeId("kishar.get.gtfsrt.tripupdates")
-        ;
-        from("direct:kishar.get.vehiclePositions")
-                .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
-                .routeId("kishar.get.gtfsrt.vehiclepositions")
-        ;
-        from("direct:kishar.get.alerts")
-                .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
-                .routeId("kishar.get.gtfsrt.alerts")
-        ;
-
 
         from("quartz2://kishar.update.output?fireNow=true&trigger.repeatInterval=10000")
                 .log("Writing output")
