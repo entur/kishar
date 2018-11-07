@@ -26,12 +26,6 @@ public class LivenessRoute extends RestRouteBuilder {
 
         super.configure();
 
-        rest("health")
-                .get("/ready").to("direct:ready")
-                .get("/up").to("direct:up")
-                .get("/healthy").to("direct:healthy")
-        ;
-
         // Application is ready to accept traffic
         from("direct:ready")
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
