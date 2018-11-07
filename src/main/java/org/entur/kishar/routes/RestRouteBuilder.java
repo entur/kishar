@@ -30,15 +30,5 @@ public class RestRouteBuilder extends RouteBuilder {
         restConfiguration("jetty")
                 .port(portNumber);
 
-        rest("")
-                .get("/api/trip-updates").to("direct:kishar.get.tripUpdates")
-                .get("/api/vehicle-positions").to("direct:kishar.get.vehiclePositions")
-                .get("/api/alerts").to("direct:kishar.get.alerts")
-                .get("/health/ready").to("direct:ready")
-                .get("/health/up").to("direct:up")
-                .get("/health/healthy").to("direct:healthy")
-        ;
-
-
     }
 }
