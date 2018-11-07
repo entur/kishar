@@ -52,19 +52,19 @@ public class SiriSubscriptionRoute  extends RouteBuilder {
         // TODO: Get data from ActiveMQ
 
         from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval="+ pollingIntervalSec*1000)
-                .to("http4://" + ansharUrlVm + "?requestorId=" + UUID.randomUUID())
+                .to("http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID())
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
             .routeId("kishar.polling.vm")
         ;
         from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec*1000)
-                .to("http4://" + ansharUrlEt + "?requestorId=" + UUID.randomUUID())
+                .to("http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID())
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
                 .routeId("kishar.polling.et")
         ;
         from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec*1000)
-                .to("http4://" + ansharUrlSx + "?requestorId=" + UUID.randomUUID())
+                .to("http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID())
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
                 .routeId("kishar.polling.sx")
