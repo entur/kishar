@@ -19,10 +19,8 @@ import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.Alert.Cause;
 import com.google.transit.realtime.GtfsRealtime.Alert.Effect;
 import com.google.transit.realtime.GtfsRealtime.TranslatedString.Translation;
-import org.onebusaway.collections.CollectionsLibrary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import uk.org.siri.siri20.*;
 
@@ -157,7 +155,7 @@ public class AlertFactory {
         AffectsScopeStructure.Operators operators = affectsStructure.getOperators();
 
         if (operators != null
-                && !CollectionsLibrary.isEmpty(operators.getAffectedOperators())) {
+                && !operators.getAffectedOperators().isEmpty()) {
 
             for (AffectedOperatorStructure operator : operators.getAffectedOperators()) {
                 OperatorRefStructure operatorRef = operator.getOperatorRef();
@@ -174,7 +172,7 @@ public class AlertFactory {
         AffectsScopeStructure.StopPoints stopPoints = affectsStructure.getStopPoints();
 
         if (stopPoints != null
-                && !CollectionsLibrary.isEmpty(stopPoints.getAffectedStopPoints())) {
+                && !stopPoints.getAffectedStopPoints().isEmpty()) {
 
             for (AffectedStopPointStructure stopPoint : stopPoints.getAffectedStopPoints()) {
                 StopPointRef stopRef = stopPoint.getStopPointRef();
@@ -190,7 +188,7 @@ public class AlertFactory {
 
         AffectsScopeStructure.VehicleJourneys vjs = affectsStructure.getVehicleJourneys();
         if (vjs != null
-                && !CollectionsLibrary.isEmpty(vjs.getAffectedVehicleJourneies())) {
+                && !vjs.getAffectedVehicleJourneies().isEmpty()) {
 
             for (AffectedVehicleJourneyStructure vj : vjs.getAffectedVehicleJourneies()) {
 
@@ -204,9 +202,8 @@ public class AlertFactory {
                 List<VehicleJourneyRef> tripRefs = vj.getVehicleJourneyReves();
                 AffectedVehicleJourneyStructure.Calls stopRefs = vj.getCalls();
 
-                boolean hasTripRefs = !CollectionsLibrary.isEmpty(tripRefs);
-                boolean hasStopRefs = stopRefs != null
-                        && !CollectionsLibrary.isEmpty(stopRefs.getCalls());
+                boolean hasTripRefs = !tripRefs.isEmpty();
+                boolean hasStopRefs = stopRefs != null && !stopRefs.getCalls().isEmpty();
 
                 if (!(hasTripRefs || hasStopRefs)) {
                     if (selector.hasRouteId()) {
