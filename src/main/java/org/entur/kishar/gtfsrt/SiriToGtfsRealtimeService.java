@@ -54,6 +54,8 @@ public class SiriToGtfsRealtimeService {
 
     private Map<String, AlertData> alertDataById = new HashMap<>();
 
+    private boolean newData = false;
+
     /**
      * Time, in seconds, after which a vehicle update is considered stale
      */
@@ -93,7 +95,7 @@ public class SiriToGtfsRealtimeService {
     }
 
     public void processDelivery(Siri siri) throws IOException {
-
+        newData = true;
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
 
         for (EstimatedTimetableDeliveryStructure etDelivery : serviceDelivery.getEstimatedTimetableDeliveries()) {
@@ -169,7 +171,6 @@ public class SiriToGtfsRealtimeService {
 
     private void process(ServiceDelivery delivery,
                          VehicleActivityStructure vehicleActivity) {
-
         checkForMissingElements(vehicleActivity);
 
         TripAndVehicleKey key = getKey(vehicleActivity);
@@ -264,6 +265,11 @@ public class SiriToGtfsRealtimeService {
     }
 
     public void writeOutput() throws IOException {
+        if (!newData) {
+            LOG.info("No new data received - ignore updating output.");
+            return;
+        }
+        newData = false;
         long t1 = System.currentTimeMillis();
         writeTripUpdates();
         writeVehiclePositions();

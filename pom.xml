@@ -47,6 +47,9 @@
         <docker.image>eu.gcr.io/${fabric8.dockerUser}${project.artifactId}:${project.version}</docker.image>
         <docker.cleanup>none</docker.cleanup>
 
+        <!-- Holding back activemq version as newest version no long support spring wired broker config-->
+        <activemq.version>5.13.4</activemq.version>
+
         <!-- fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT>true</fabric8.env.AB_JOLOKIA_AUTH_OPENSHIFT -->
         <fabric8.label.component>${project.artifactId}</fabric8.label.component>
         <fabric8.label.container>spring-boot</fabric8.label.container>
@@ -145,6 +148,12 @@
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-spring</artifactId>
             <version>${camel-version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-camel</artifactId>
+            <version>${activemq.version}</version>
         </dependency>
 
         <dependency>

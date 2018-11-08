@@ -50,7 +50,6 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
         ;
 
         from("quartz2://kishar.update.output?fireNow=true&trigger.repeatInterval=10000")
-                .log("Writing output")
                 .bean(siriToGtfsRealtimeService, "writeOutput()")
                 .routeId("kishar.update.output")
         ;
