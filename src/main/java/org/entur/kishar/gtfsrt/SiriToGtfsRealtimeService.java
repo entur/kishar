@@ -21,6 +21,7 @@ import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import org.entur.kishar.gtfsrt.siri.SiriLibrary;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeMutableProvider;
+import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProvider;
 import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProviderImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,6 @@ public class SiriToGtfsRealtimeService {
 
     private static Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
-    @Autowired
     private AlertFactory alertFactory;
 
     private Map<TripAndVehicleKey, VehicleData> dataByVehicle = new HashMap<>();
@@ -59,8 +59,9 @@ public class SiriToGtfsRealtimeService {
      */
     private static final int staleDataThreshold = 5 * 60;
 
-    public SiriToGtfsRealtimeService() {
-        gtfsRealtimeProvider = new GtfsRealtimeProviderImpl();
+    public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory) {
+        this.alertFactory = alertFactory;
+        this.gtfsRealtimeProvider = new GtfsRealtimeProviderImpl();
     }
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
@@ -563,28 +564,33 @@ public class SiriToGtfsRealtimeService {
         return false;
     }
 
-    private TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(
-            EstimatedVehicleJourney estimatedVehicleJourney) {
+    private TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(EstimatedVehicleJourney estimatedVehicleJourney) {
 
         TripDescriptor.Builder td = TripDescriptor.newBuilder();
         FramedVehicleJourneyRefStructure fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
         td.setTripId(fvjRef.getDatedVehicleJourneyRef());
 
+        if (estimatedVehicleJourney.getLineRef() != null) {
+            td.setRouteId(estimatedVehicleJourney.getLineRef().getValue());
+        }
+
         return td.build();
     }
 
-    private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(
-            MonitoredVehicleJourney mvj) {
+    private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(MonitoredVehicleJourney mvj) {
 
         TripDescriptor.Builder td = TripDescriptor.newBuilder();
         FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
         td.setTripId(fvjRef.getDatedVehicleJourneyRef());
 
+        if (mvj.getLineRef() != null) {
+            td.setRouteId(mvj.getLineRef().getValue());
+        }
+
         return td.build();
     }
 
-    private VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(
-            MonitoredVehicleJourney mvj) {
+    private VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(MonitoredVehicleJourney mvj) {
         VehicleRef vehicleRef = mvj.getVehicleRef();
         if (vehicleRef == null || vehicleRef.getValue() == null) {
             return null;
