@@ -3,14 +3,11 @@ package org.entur.kishar.gtfsrt;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProviderImpl;
 import uk.org.siri.siri20.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 
 import static junit.framework.TestCase.*;

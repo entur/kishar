@@ -3,15 +3,11 @@ package org.entur.kishar.gtfsrt;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
-import uk.org.siri.siri20.DefaultedTextStructure;
 import uk.org.siri.siri20.PtSituationElement;
-import uk.org.siri.siri20.SituationNumber;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
-import static org.entur.kishar.gtfsrt.Helper.createPtSituationElement;
-import static org.entur.kishar.gtfsrt.Helper.descriptionValue;
-import static org.entur.kishar.gtfsrt.Helper.summaryValue;
+import static org.entur.kishar.gtfsrt.Helper.*;
 
 public class TestAlertFactory {
     AlertFactory alertFactory;

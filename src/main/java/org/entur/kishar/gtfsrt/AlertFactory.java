@@ -18,13 +18,14 @@ package org.entur.kishar.gtfsrt;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.Alert.Cause;
 import com.google.transit.realtime.GtfsRealtime.Alert.Effect;
-import com.google.transit.realtime.GtfsRealtime.TranslatedString.Translation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import uk.org.siri.siri20.*;
 
 import java.util.List;
+
+import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.translation;
 
 @Service
 public class AlertFactory {
@@ -302,33 +303,6 @@ public class AlertFactory {
 
             _log.warn("unknown condition: " + conditions);
             return Effect.UNKNOWN_EFFECT;
-        }
-        return null;
-    }
-
-    private TranslatedString translation(List<uk.org.siri.siri20.DefaultedTextStructure> textStructures) {
-        if (textStructures == null) {
-            return null;
-        }
-
-        if (textStructures.size() >= 1) {
-            DefaultedTextStructure text = textStructures.get(0);
-            String value = text.getValue();
-            if (value == null) {
-                return null;
-            }
-
-            value = value.replaceAll("\\s+", " ");
-
-            Translation.Builder translation = Translation.newBuilder();
-            translation.setText(value);
-            if (text.getLang() != null) {
-                translation.setLanguage(text.getLang());
-            }
-
-            TranslatedString.Builder tsBuilder = TranslatedString.newBuilder();
-            tsBuilder.addTranslation(translation);
-            return tsBuilder.build();
         }
         return null;
     }

@@ -12,7 +12,7 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  */
-package org.entur.kishar.gtfsrt.siri;
+package org.entur.kishar.gtfsrt.helpers;
 
 import org.entur.kishar.gtfsrt.AlertData;
 import uk.org.siri.siri20.HalfOpenTimestampOutputRangeStructure;

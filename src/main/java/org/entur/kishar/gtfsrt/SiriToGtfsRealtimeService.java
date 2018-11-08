@@ -18,11 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
-import org.entur.kishar.gtfsrt.siri.SiriLibrary;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeLibrary;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeMutableProvider;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProvider;
-import org.onebusway.gtfs_realtime.exporter.GtfsRealtimeProviderImpl;
+import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +32,8 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
+
+import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
 
 @Service
 public class SiriToGtfsRealtimeService {
@@ -60,10 +58,12 @@ public class SiriToGtfsRealtimeService {
      * Time, in seconds, after which a vehicle update is considered stale
      */
     private static final int staleDataThreshold = 5 * 60;
+    private FeedMessage tripUpdates = createFeedMessageBuilder().build();
+    private FeedMessage vehiclePositions = createFeedMessageBuilder().build();
+    private FeedMessage alerts = createFeedMessageBuilder().build();
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory) {
         this.alertFactory = alertFactory;
-        this.gtfsRealtimeProvider = new GtfsRealtimeProviderImpl();
     }
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
@@ -75,16 +75,16 @@ public class SiriToGtfsRealtimeService {
         }
     };
 
-    private GtfsRealtimeMutableProvider gtfsRealtimeProvider;
+//    private GtfsRealtimeMutableProvider gtfsRealtimeProvider;
 
     public Object getTripUpdates(String contentType) {
-        return encodeFeedMessage(gtfsRealtimeProvider.getTripUpdates(), contentType);
+        return encodeFeedMessage(tripUpdates, contentType);
     }
     public Object getVehiclePositions(String contentType) {
-        return encodeFeedMessage(gtfsRealtimeProvider.getVehiclePositions(), contentType);
+        return encodeFeedMessage(vehiclePositions, contentType);
     }
     public Object getAlerts(String contentType) {
-        return encodeFeedMessage(gtfsRealtimeProvider.getAlerts(), contentType);
+        return encodeFeedMessage(alerts, contentType);
     }
 
     private Object encodeFeedMessage(FeedMessage feedMessage, String contentType) {
@@ -274,17 +274,16 @@ public class SiriToGtfsRealtimeService {
         writeTripUpdates();
         writeVehiclePositions();
         writeAlerts();
-        gtfsRealtimeProvider.fireUpdate();
         LOG.info("Wrote output in {} ms: {} alerts, {} vehicle-positions, {} trip-updates",
                 (System.currentTimeMillis()-t1),
-                gtfsRealtimeProvider.getAlerts().getEntityCount(),
-                gtfsRealtimeProvider.getVehiclePositions().getEntityCount(),
-                gtfsRealtimeProvider.getTripUpdates().getEntityCount());
+                alerts.getEntityCount(),
+                vehiclePositions.getEntityCount(),
+                tripUpdates.getEntityCount());
     }
 
     private void writeTripUpdates() throws IOException {
 
-        FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
+        FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
         for (Iterator<EstimatedVehicleJourneyData> it = dataByTimetable.values().iterator(); it.hasNext(); ) {
@@ -323,7 +322,7 @@ public class SiriToGtfsRealtimeService {
             feedMessageBuilder.addEntity(entity);
         }
 
-        gtfsRealtimeProvider.setTripUpdates(feedMessageBuilder.build(), false);
+        setTripUpdates(feedMessageBuilder.build());
     }
 
     private void applyStopSpecificDelayToTripUpdateIfApplicable(
@@ -437,7 +436,7 @@ public class SiriToGtfsRealtimeService {
 
     private void writeVehiclePositions() throws IOException {
 
-        FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
+        FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
         for (Iterator<VehicleData> it = dataByVehicle.values().iterator(); it.hasNext(); ) {
@@ -489,7 +488,7 @@ public class SiriToGtfsRealtimeService {
             }
         }
 
-        gtfsRealtimeProvider.setVehiclePositions(feedMessageBuilder.build(), false);
+        setVehiclePositions(feedMessageBuilder.build());
     }
 
     private String getVehicleIdForKey(TripAndVehicleKey key) {
@@ -501,7 +500,7 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void writeAlerts() {
-        FeedMessage.Builder feedMessageBuilder = GtfsRealtimeLibrary.createFeedMessageBuilder();
+        FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
 
         ZonedDateTime now = ZonedDateTime.now();
 
@@ -538,10 +537,32 @@ public class SiriToGtfsRealtimeService {
             feedMessageBuilder.addEntity(entity);
         }
 
-        gtfsRealtimeProvider.setAlerts(feedMessageBuilder.build(), false);
+        setAlerts(feedMessageBuilder.build());
     }
 
+    public FeedMessage getTripUpdates() {
+        return tripUpdates;
+    }
 
+    public void setTripUpdates(FeedMessage tripUpdates) {
+        this.tripUpdates = tripUpdates;
+    }
+
+    public FeedMessage getVehiclePositions() {
+        return vehiclePositions;
+    }
+
+    public void setVehiclePositions(FeedMessage vehiclePositions) {
+        this.vehiclePositions = vehiclePositions;
+    }
+
+    public FeedMessage getAlerts() {
+        return alerts;
+    }
+
+    public void setAlerts(FeedMessage alerts) {
+        this.alerts = alerts;
+    }
 
     private boolean isDataStale(long timestamp, long currentTime) {
         return timestamp + staleDataThreshold * 1000 < currentTime;
