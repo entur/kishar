@@ -169,7 +169,7 @@ public class SiriToGtfsRealtimeService {
 
     private void process(ServiceDelivery delivery,
                          VehicleActivityStructure vehicleActivity) {
-        checkForMissingElements(vehicleActivity);
+        checkPreconditions(vehicleActivity);
 
         TripAndVehicleKey key = getKey(vehicleActivity);
 
@@ -187,7 +187,7 @@ public class SiriToGtfsRealtimeService {
     private void process(ServiceDelivery delivery,
                          EstimatedVehicleJourney estimatedVehicleJourney) {
 
-        checkForMissingElements(estimatedVehicleJourney);
+        checkPreconditions(estimatedVehicleJourney);
 
         TripAndVehicleKey key = getKey(estimatedVehicleJourney);
 
@@ -201,30 +201,28 @@ public class SiriToGtfsRealtimeService {
         dataByTimetable.put(key, data);
     }
 
-    private void checkForMissingElements(VehicleActivityStructure vehicleActivity) {
+    private void checkPreconditions(VehicleActivityStructure vehicleActivity) {
 
         Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
-        FramedVehicleJourneyRefStructure fvjRef = vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef();
-
-        Preconditions.checkNotNull(fvjRef,"FramedVehicleJourneyRef");
-        Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
-        Preconditions.checkNotNull(fvjRef.getDataFrameRef().getValue(),"DataFrameRef");
-        Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
+        checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
 
     }
 
-    private void checkForMissingElements(EstimatedVehicleJourney estimatedVehicleJourney) {
+    private void checkPreconditions(EstimatedVehicleJourney estimatedVehicleJourney) {
 
-        FramedVehicleJourneyRefStructure fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
-
-        Preconditions.checkNotNull(fvjRef,"FramedVehicleJourneyRef");
-        Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
-        Preconditions.checkNotNull(fvjRef.getDataFrameRef().getValue(),"DataFrameRef");
+        checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
 
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls().getEstimatedCalls(), "EstimatedCalls");
 
+    }
+
+    private void checkPreconditions(FramedVehicleJourneyRefStructure fvjRef) {
+        Preconditions.checkNotNull(fvjRef,"FramedVehicleJourneyRef");
+        Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
+        Preconditions.checkNotNull(fvjRef.getDataFrameRef().getValue(),"DataFrameRef");
+        Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
     }
 
     private TripAndVehicleKey getKey(VehicleActivityStructure vehicleActivity) {
