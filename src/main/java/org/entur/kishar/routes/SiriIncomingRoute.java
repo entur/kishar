@@ -14,20 +14,25 @@
  */
 package org.entur.kishar.routes;
 
+import org.apache.camel.Predicate;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.builder.xml.Namespaces;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
+import org.apache.camel.model.language.XPathExpression;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import java.time.ZonedDateTime;
+import java.util.*;
 
 @Service
 @Configuration
 public class SiriIncomingRoute extends RouteBuilder {
 
+    private static final java.lang.String PATH_HEADER = "path";
     private SiriToGtfsRealtimeService siriToGtfsRealtimeService;
 
     @Value("${kishar.anshar.polling.url.et}")
@@ -37,8 +42,12 @@ public class SiriIncomingRoute extends RouteBuilder {
     @Value("${kishar.anshar.polling.url.sx}")
     private String ansharUrlSx;
 
+    private Map<String, ZonedDateTime> inProgress = new HashMap<>();
+
     @Value("${kishar.anshar.polling.interval.sec}")
     private int pollingIntervalSec;
+
+    private final Namespaces siriNamespace = new Namespaces("siri", "http://www.siri.org.uk/siri");
 
     public SiriIncomingRoute(@Autowired SiriToGtfsRealtimeService siriToGtfsRealtimeService) {
         this.siriToGtfsRealtimeService = siriToGtfsRealtimeService;
@@ -49,27 +58,68 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-
+        String path_VM = ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                .to("http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID())
-                .to("direct:process.helpers.xml")
+                .choice()
+                .when(p -> !isInProgress(path_VM))
+                    .setHeader(PATH_HEADER, constant(path_VM))
+                    .to("direct:polling")
+                .endChoice()
                 .routeId("kishar.polling.vm")
         ;
+        String path_ET = ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                .to("http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID())
-                .to("direct:process.helpers.xml")
+                .choice()
+                .when(p -> !isInProgress(path_ET))
+                    .setHeader(PATH_HEADER, constant(path_ET))
+                    .to("direct:polling")
+                .endChoice()
                 .routeId("kishar.polling.et")
         ;
+        String path_SX = ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                .to("http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID())
-                .to("direct:process.helpers.xml")
+                .choice()
+                .when(p -> !isInProgress(path_SX))
+                    .setHeader(PATH_HEADER, constant(path_SX))
+                    .to("direct:polling")
+                .endChoice()
                 .routeId("kishar.polling.sx")
         ;
+
+        from("direct:polling")
+                .process(p -> start(p.getIn().getHeader(PATH_HEADER, String.class)))
+                .log("Fetching data from ${header." + PATH_HEADER +"}")
+                .toD("http4://${header." + PATH_HEADER +"}")
+                .to("direct:process.helpers.xml")
+                .choice()
+                    .when().xpath("/siri:Siri/siri:ServiceDelivery/siri:MoreData='true'", siriNamespace)
+                        .log("MoreData - fetching immediately from ${header." + PATH_HEADER +"}")
+                        .to("direct:polling")
+                    .endChoice()
+                .end()
+                .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)))
+                ;
 
         from("direct:process.helpers.xml")
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
                 ;
 
+    }
+
+    private void start(String path) {
+        if (!inProgress.containsKey(path)) {
+            inProgress.put(path, ZonedDateTime.now());
+        }
+    }
+    private void stop(String path) {
+        ZonedDateTime removed = inProgress.remove(path);
+        if (removed != null) {
+            log.info("Fetching all data from {} took {} sec", path, (ZonedDateTime.now().toEpochSecond()-removed.toEpochSecond()));
+        }
+    }
+
+    private boolean isInProgress(String path) {
+        return inProgress.containsKey(path);
     }
 }
