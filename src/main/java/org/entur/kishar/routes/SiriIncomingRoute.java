@@ -40,18 +40,6 @@ public class SiriIncomingRoute extends RouteBuilder {
     @Value("${kishar.anshar.polling.interval.sec}")
     private int pollingIntervalSec;
 
-
-
-    @Value("${kishar.anshar.activemq.topic.enabled:false}")
-    private boolean activeMqTopicEnabled;
-
-    @Value("${kishar.anshar.activemq.topic.name.et}")
-    private String activeMqTopicEt;
-    @Value("${kishar.anshar.activemq.topic.name.vm}")
-    private String activeMqTopicVm;
-    @Value("${kishar.anshar.activemq.topic.name.sx}")
-    private String activeMqTopicSx;
-
     public SiriIncomingRoute(@Autowired SiriToGtfsRealtimeService siriToGtfsRealtimeService) {
         this.siriToGtfsRealtimeService = siriToGtfsRealtimeService;
     }
@@ -61,43 +49,22 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-        if (activeMqTopicEnabled) {
 
-            from(activeMqTopicVm)
-                    .log("Incoming SIRI from " + activeMqTopicVm)
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.activemq.topic.vm")
-            ;
-
-            from(activeMqTopicEt)
-                    .log("Incoming SIRI from " + activeMqTopicEt)
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.activemq.topic.et")
-            ;
-
-            from(activeMqTopicSx)
-                    .log("Incoming SIRI from " + activeMqTopicSx)
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.activemq.topic.sx")
-            ;
-        } else {
-
-            from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                    .to("http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID())
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.polling.vm")
-            ;
-            from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                    .to("http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID())
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.polling.et")
-            ;
-            from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
-                    .to("http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID())
-                    .to("direct:process.helpers.xml")
-                    .routeId("kishar.polling.sx")
-            ;
-        }
+        from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+                .to("http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID())
+                .to("direct:process.helpers.xml")
+                .routeId("kishar.polling.vm")
+        ;
+        from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+                .to("http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID())
+                .to("direct:process.helpers.xml")
+                .routeId("kishar.polling.et")
+        ;
+        from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+                .to("http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID())
+                .to("direct:process.helpers.xml")
+                .routeId("kishar.polling.sx")
+        ;
 
         from("direct:process.helpers.xml")
                 .marshal(dataFormatType)
