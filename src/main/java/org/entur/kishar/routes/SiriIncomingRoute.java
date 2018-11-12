@@ -58,7 +58,7 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-        String path_VM = ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID();
+        String path_VM = "http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_VM))
@@ -67,7 +67,8 @@ public class SiriIncomingRoute extends RouteBuilder {
                 .endChoice()
                 .routeId("kishar.polling.vm")
         ;
-        String path_ET = ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID();
+
+        String path_ET = "http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_ET))
@@ -76,7 +77,8 @@ public class SiriIncomingRoute extends RouteBuilder {
                 .endChoice()
                 .routeId("kishar.polling.et")
         ;
-        String path_SX = ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID();
+
+        String path_SX = "http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID();
         from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_SX))
@@ -89,7 +91,7 @@ public class SiriIncomingRoute extends RouteBuilder {
         from("direct:polling")
                 .process(p -> start(p.getIn().getHeader(PATH_HEADER, String.class)))
                 .log("Fetching data from ${header." + PATH_HEADER +"}")
-                .toD("http4://${header." + PATH_HEADER +"}")
+                .toD("${header." + PATH_HEADER +"}")
                 .to("direct:process.helpers.xml")
                 .choice()
                     .when().xpath("/siri:Siri/siri:ServiceDelivery/siri:MoreData='true'", siriNamespace)

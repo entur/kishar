@@ -75,8 +75,6 @@ public class SiriToGtfsRealtimeService {
         }
     };
 
-//    private GtfsRealtimeMutableProvider gtfsRealtimeProvider;
-
     public Object getTripUpdates(String contentType) {
         return encodeFeedMessage(tripUpdates, contentType);
     }
