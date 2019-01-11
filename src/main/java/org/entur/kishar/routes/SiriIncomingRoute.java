@@ -14,11 +14,9 @@
  */
 package org.entur.kishar.routes;
 
-import org.apache.camel.Predicate;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.builder.xml.Namespaces;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
-import org.apache.camel.model.language.XPathExpression;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +24,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Configuration
@@ -54,11 +54,11 @@ public class SiriIncomingRoute extends RouteBuilder {
     }
 
     @Override
-    public void configure() throws Exception {
+    public void configure() {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-        String path_VM = "http4://" + ansharUrlVm + "?requestorId=kishar-" + UUID.randomUUID();
+        String path_VM = getPath(ansharUrlVm);
         from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_VM))
@@ -68,7 +68,7 @@ public class SiriIncomingRoute extends RouteBuilder {
                 .routeId("kishar.polling.vm")
         ;
 
-        String path_ET = "http4://" + ansharUrlEt + "?requestorId=kishar-" + UUID.randomUUID();
+        String path_ET = getPath(ansharUrlEt);
         from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_ET))
@@ -78,7 +78,7 @@ public class SiriIncomingRoute extends RouteBuilder {
                 .routeId("kishar.polling.et")
         ;
 
-        String path_SX = "http4://" + ansharUrlSx + "?requestorId=kishar-" + UUID.randomUUID();
+        String path_SX = getPath(ansharUrlSx);
         from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
                 .choice()
                 .when(p -> !isInProgress(path_SX))
@@ -107,6 +107,15 @@ public class SiriIncomingRoute extends RouteBuilder {
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
                 ;
 
+    }
+
+    private String getPath(String url) {
+        if (url.contains("?")) {
+            url += "&";
+        } else {
+            url += "?";
+        }
+        return "http4://" + url + "requestorId=kishar-" + UUID.randomUUID();
     }
 
     private void start(String path) {
