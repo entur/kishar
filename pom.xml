@@ -42,7 +42,7 @@
         <camel-version>2.22.1</camel-version>
 
         <!-- Docker & Fabric8 Configs -->
-        <docker.from>eu.gcr.io/carbon-1287/openjdk11-base-image</docker.from>
+        <docker.from>eu.gcr.io/carbon-1287/java-base-image</docker.from>
         <fabric8.dockerUser>carbon-1287/</fabric8.dockerUser>
         <docker.image>eu.gcr.io/${fabric8.dockerUser}${project.artifactId}:${project.version}</docker.image>
         <docker.cleanup>none</docker.cleanup>
@@ -199,8 +199,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>11</source>
-                    <target>11</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -212,7 +212,6 @@
                     <excludes>
                         <exclude>**/*KT.java</exclude>
                     </excludes>
-                    <argLine>-Xmx1024m</argLine>
                 </configuration>
             </plugin>
 
