@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TargetEndpoint name="realtime-v1-gtfs-rt">
+    <Description/>
+    <FaultRules/>
+    <DefaultFaultRule name="target-fault">
+        <Step>
+            <Name>flowCallout.generalSecurityHeaders</Name>
+        </Step>
+        <Step>
+            <Name>assignMessage.addCors</Name>
+        </Step>
+    </DefaultFaultRule>
+    <Flows/>
+    <PostFlow name="PostFlow">
+        <Request/>
+        <Response>
+            <Step>
+                <FaultRules/>
+                <Name>flowCallout.generalSecurityHeaders</Name>
+            </Step>
+        </Response>
+    </PostFlow>
+    <PreFlow name="PreFlow">
+        <Request>
+            <Step>
+                <Name>flowCallout.replaceTargetUrl</Name>
+            </Step>
+        </Request>
+        <Response>
+            <Step>
+                <FaultRules/>
+                <Name>assignMessage.addCors</Name>
+            </Step>
+        </Response>
+    </PreFlow>
+    <HTTPTargetConnection>
+        <Properties/>
+        <URL>https://realtime-v1-gtfs-rt-NAMESPACE.INGRESS_ENVIRONMENT/api</URL>
+    </HTTPTargetConnection>
+</TargetEndpoint>
