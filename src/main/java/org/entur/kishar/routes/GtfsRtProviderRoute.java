@@ -35,18 +35,24 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
         super.configure();
 
         rest("/api/")
-                .get("trip-updates")
-                    .route()
-                        .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
-                    .endRest()
-                .get("vehicle-positions")
-                    .route()
-                        .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
-                    .endRest()
-                .get("alerts")
-                    .route()
-                        .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
-                    .endRest()
+                .get("trip-updates").to("direct:getTripUpdates")
+                .get("vehicle-positions").to("direct:getVehiclePositions")
+                .get("alerts").to("direct:getAlerts")
+        ;
+
+        from("direct:getTripUpdates")
+                .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
+                .setHeader("Content-Disposition", constant("attachment; filename=trip-updates.pbf"))
+        ;
+
+        from("direct:getVehiclePositions")
+                .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
+                .setHeader("Content-Disposition", constant("attachment; filename=vehicle-positions.pbf"))
+        ;
+
+        from("direct:getAlerts")
+                .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
+                .setHeader("Content-Disposition", constant("attachment; filename=alerts.pbf"))
         ;
 
         from("quartz2://kishar.update.output?fireNow=true&trigger.repeatInterval=10000")
