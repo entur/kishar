@@ -100,12 +100,12 @@ public class SiriIncomingRoute extends RouteBuilder {
                     .endChoice()
                 .end()
                 .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)))
-                ;
+        ;
 
         from("direct:process.helpers.xml")
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
-                ;
+        ;
 
     }
 
@@ -115,7 +115,7 @@ public class SiriIncomingRoute extends RouteBuilder {
         } else {
             url += "?";
         }
-        return "http4://" + url + "requestorId=kishar-" + UUID.randomUUID();
+        return url + "requestorId=kishar-" + UUID.randomUUID();
     }
 
     private void start(String path) {
