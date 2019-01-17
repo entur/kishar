@@ -27,7 +27,6 @@ import uk.org.siri.siri20.*;
 import uk.org.siri.siri20.SituationExchangeDeliveryStructure.Situations;
 import uk.org.siri.siri20.VehicleActivityStructure.MonitoredVehicleJourney;
 
-import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -37,12 +36,13 @@ import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMess
 
 @Service
 public class SiriToGtfsRealtimeService {
+    private static Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
     public static final String MONITORING_ERROR_NO_CURRENT_INFORMATION = "NO_CURRENT_INFORMATION";
 
     public static final String MONITORING_ERROR_NOMINALLY_LOCATED = "NOMINALLY_LOCATED";
 
-    private static Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
+    private static final String MEDIA_TYPE_APPLICATION_JSON = "application/json";
 
     private AlertFactory alertFactory;
 
@@ -86,7 +86,8 @@ public class SiriToGtfsRealtimeService {
     }
 
     private Object encodeFeedMessage(FeedMessage feedMessage, String contentType) {
-        if (contentType != null && contentType.equals(MediaType.APPLICATION_JSON)) {
+
+        if (contentType != null && contentType.equals(MEDIA_TYPE_APPLICATION_JSON)) {
             return feedMessage;
         }
         return feedMessage.toByteArray();
