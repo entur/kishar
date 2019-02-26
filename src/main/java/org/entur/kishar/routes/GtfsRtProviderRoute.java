@@ -35,24 +35,27 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
         super.configure();
 
         rest("/api/")
-                .get("trip-updates").to("direct:getTripUpdates")
-                .get("vehicle-positions").to("direct:getVehiclePositions")
-                .get("alerts").to("direct:getAlerts")
+                .get("trip-updates").to("direct:getTripUpdates").produces("application/octet-stream")
+                .get("vehicle-positions").to("direct:getVehiclePositions").produces("application/octet-stream")
+                .get("alerts").to("direct:getAlerts").produces("application/octet-stream")
         ;
 
         from("direct:getTripUpdates")
                 .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
                 .setHeader("Content-Disposition", constant("attachment; filename=trip-updates.pbf"))
+                .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
         from("direct:getVehiclePositions")
                 .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
                 .setHeader("Content-Disposition", constant("attachment; filename=vehicle-positions.pbf"))
+                .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
         from("direct:getAlerts")
                 .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
                 .setHeader("Content-Disposition", constant("attachment; filename=alerts.pbf"))
+                .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
         from("quartz2://kishar.update.output?fireNow=true&trigger.repeatInterval=10000")
