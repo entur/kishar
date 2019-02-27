@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
 
@@ -46,11 +47,11 @@ public class SiriToGtfsRealtimeService {
 
     private AlertFactory alertFactory;
 
-    private Map<TripAndVehicleKey, VehicleData> dataByVehicle = new HashMap<>();
+    private Map<TripAndVehicleKey, VehicleData> dataByVehicle = new ConcurrentHashMap<>();
 
-    private Map<TripAndVehicleKey, EstimatedVehicleJourneyData> dataByTimetable = new HashMap<>();
+    private Map<TripAndVehicleKey, EstimatedVehicleJourneyData> dataByTimetable = new ConcurrentHashMap<>();
 
-    private Map<String, AlertData> alertDataById = new HashMap<>();
+    private Map<String, AlertData> alertDataById = new ConcurrentHashMap<>();
 
     private boolean newData = false;
 
