@@ -44,8 +44,8 @@ public class SiriIncomingRoute extends RouteBuilder {
 
     private Map<String, ZonedDateTime> inProgress = new HashMap<>();
 
-    @Value("${kishar.anshar.polling.interval.sec}")
-    private int pollingIntervalSec;
+    @Value("${kishar.anshar.polling.period:15s}")
+    private String pollingPeriod;
 
     private final Namespaces siriNamespace = new Namespaces("siri", "http://www.siri.org.uk/siri");
 
@@ -59,7 +59,7 @@ public class SiriIncomingRoute extends RouteBuilder {
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
         String path_VM = getPath(ansharUrlVm);
-        from("quartz2://kishar.polling_vm?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+        from("timer://kishar.polling_vm?fixedRate=true&period=" + pollingPeriod)
                 .choice()
                 .when(p -> !isInProgress(path_VM))
                     .setHeader(PATH_HEADER, constant(path_VM))
@@ -69,7 +69,7 @@ public class SiriIncomingRoute extends RouteBuilder {
         ;
 
         String path_ET = getPath(ansharUrlEt);
-        from("quartz2://kishar.polling_et?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+        from("timer://kishar.polling_et?fixedRate=true&period=" + pollingPeriod)
                 .choice()
                 .when(p -> !isInProgress(path_ET))
                     .setHeader(PATH_HEADER, constant(path_ET))
@@ -79,7 +79,7 @@ public class SiriIncomingRoute extends RouteBuilder {
         ;
 
         String path_SX = getPath(ansharUrlSx);
-        from("quartz2://kishar.polling_sx?fireNow=true&trigger.repeatInterval=" + pollingIntervalSec * 1000)
+        from("timer://kishar.polling_sx?fixedRate=true&period=" + pollingPeriod)
                 .choice()
                 .when(p -> !isInProgress(path_SX))
                     .setHeader(PATH_HEADER, constant(path_SX))

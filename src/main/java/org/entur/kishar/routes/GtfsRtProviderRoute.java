@@ -58,7 +58,7 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
                 .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
-        from("quartz2://kishar.update.output?fireNow=true&trigger.repeatInterval=10000")
+        from("timer://kishar.update.output?fixedRate=true&period=10s")
                 .bean(siriToGtfsRealtimeService, "writeOutput()")
                 .routeId("kishar.update.output")
         ;
