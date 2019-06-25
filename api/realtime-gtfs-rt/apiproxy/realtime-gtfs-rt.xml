@@ -11,7 +11,6 @@
         <Policy>spikeArrestNoIdPolicy</Policy>
         <Policy>accessControl.blockIp</Policy>
         <Policy>raiseFault.spikeArrestNoId</Policy>
-        <Policy>flowCallout.generalSecurityHeaders</Policy>
     </Policies>
     <ProxyEndpoints>
         <ProxyEndpoint>realtime-v1-gtfs-rt</ProxyEndpoint>
