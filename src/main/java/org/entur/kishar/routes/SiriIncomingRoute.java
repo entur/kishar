@@ -60,7 +60,7 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         onException(Exception.class)
                 .handled(true)
-                .to("log:exception:" + getClass().getSimpleName() + "?showAll=true&multiline=true")
+                .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
                 .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
 
         String path_VM = getPath(ansharUrlVm);
@@ -95,7 +95,7 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         from("direct:polling")
                 .process(p -> start(p.getIn().getHeader(PATH_HEADER, String.class)))
-                .to("log:polling:" + getClass().getSimpleName() + "?showAll=true&multiline=true")
+                .log("Fetching data from ${header."+PATH_HEADER+"}")
                 .toD("${header." + PATH_HEADER +"}")
                 .to("direct:process.helpers.xml")
                 .choice()
@@ -105,8 +105,6 @@ public class SiriIncomingRoute extends RouteBuilder {
                     .endChoice()
                 .end()
                 .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)))
-                .to("log:done:" + getClass().getSimpleName() + "?showAll=true&multiline=true")
-
         ;
 
         from("direct:process.helpers.xml")
