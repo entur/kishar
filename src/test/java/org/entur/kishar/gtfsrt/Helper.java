@@ -7,6 +7,7 @@ public class Helper {
     static String situationNumberValue = "TST:SituationNumber:1234";
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
+    static String datasource = "RUT";
 
     static PtSituationElement createPtSituationElement() {
         PtSituationElement ptSituation = new PtSituationElement();
@@ -22,6 +23,10 @@ public class Helper {
         DefaultedTextStructure description = new DefaultedTextStructure();
         description.setValue(descriptionValue);
         ptSituation.getDescriptions().add(description);
+
+        RequestorRef requestorRef = new RequestorRef();
+        requestorRef.setValue(datasource);
+        ptSituation.setParticipantRef(requestorRef);
         return ptSituation;
     }
 

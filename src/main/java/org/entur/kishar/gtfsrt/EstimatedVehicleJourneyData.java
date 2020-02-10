@@ -42,7 +42,7 @@ class EstimatedVehicleJourneyData {
     return timestamp;
   }
 
-  public EstimatedVehicleJourney geEstimatedVehicleJourney() {
+  public EstimatedVehicleJourney getEstimatedVehicleJourney() {
     return estimatedVehicleJourney;
   }
   

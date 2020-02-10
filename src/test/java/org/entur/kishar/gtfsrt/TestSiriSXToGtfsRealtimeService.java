@@ -1,5 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
+import com.google.common.collect.Lists;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,7 +20,7 @@ public class TestSiriSXToGtfsRealtimeService {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory());
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT"));
     }
 
     @Test
@@ -35,7 +36,7 @@ public class TestSiriSXToGtfsRealtimeService {
 
         rtService.processDelivery(siri);
         rtService.writeOutput();
-        Object alerts = rtService.getAlerts("application/json");
+        Object alerts = rtService.getAlerts("application/json", null);
         assertNotNull(alerts);
         assertTrue(alerts instanceof GtfsRealtime.FeedMessage);
 
@@ -43,7 +44,7 @@ public class TestSiriSXToGtfsRealtimeService {
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
 
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getAlerts(null));
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getAlerts(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
         GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
