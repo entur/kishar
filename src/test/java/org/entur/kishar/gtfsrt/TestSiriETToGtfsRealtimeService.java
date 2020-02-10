@@ -21,7 +21,7 @@ public class TestSiriETToGtfsRealtimeService {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"));
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"), null, null);
     }
 
     @Test
@@ -189,7 +189,7 @@ public class TestSiriETToGtfsRealtimeService {
 
     @Test
     public void testEtToTripUpdateNoWhitelist() throws IOException {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null);
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, null);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;

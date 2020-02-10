@@ -20,7 +20,7 @@ public class TestSiriSXToGtfsRealtimeService {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT"));
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, Lists.newArrayList("RUT"));
     }
 
     @Test
