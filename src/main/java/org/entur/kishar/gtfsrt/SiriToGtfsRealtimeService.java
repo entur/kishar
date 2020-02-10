@@ -77,8 +77,8 @@ public class SiriToGtfsRealtimeService {
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Value("kishar.datasource.et.whitelist") List<String> datasourceETWhitelist,
-                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceVMWhitelist,
-                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceSXWhitelist) {
+                                     @Value("kishar.datasource.vm.whitelist") List<String> datasourceVMWhitelist,
+                                     @Value("kishar.datasource.sx.whitelist") List<String> datasourceSXWhitelist) {
         this.datasourceETWhitelist = datasourceETWhitelist;
         this.datasourceVMWhitelist = datasourceVMWhitelist;
         this.datasourceSXWhitelist = datasourceSXWhitelist;

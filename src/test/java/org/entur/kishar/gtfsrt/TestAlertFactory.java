@@ -20,7 +20,7 @@ public class TestAlertFactory {
     @Test
     public void testCreateAlertFromSituation() {
 
-        PtSituationElement ptSituation = createPtSituationElement();
+        PtSituationElement ptSituation = createPtSituationElement("RUT");
 
 
         GtfsRealtime.Alert.Builder alertBuilder = alertFactory.createAlertFromSituation(ptSituation);

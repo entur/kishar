@@ -63,6 +63,46 @@ public class TestSiriVMToGtfsRealtimeService {
     }
 
     @Test
+    public void testVmToVehiclePositionWithDatasourceFiltering() throws IOException {
+
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef1 = "TST:ServiceJourney:1234";
+        String datedVehicleJourneyRef2 = "TST:ServiceJourney:1235";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource1 = "RUT";
+        String datasource2 = "BNR";
+
+        Siri siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
+        Siri siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
+
+        rtService.processDelivery(siriRUT);
+        rtService.processDelivery(siriBNR);
+        rtService.writeOutput();
+
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
+        assertNotNull(vehiclePositions);
+        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+        assertEquals(1, entityList.size());
+
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
+        assertEquals(feedMessage, byteArrayFeedMessage);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        assertEquals(datedVehicleJourneyRef1, vehiclePosition.getTrip().getTripId());
+    }
+
+    @Test
     public void testVmWithoutFramedVehicleRef() throws IOException {
         String lineRefValue = "TST:Line:1234";
         double latitude = 10.56;

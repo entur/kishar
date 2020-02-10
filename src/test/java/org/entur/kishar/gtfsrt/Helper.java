@@ -7,9 +7,8 @@ public class Helper {
     static String situationNumberValue = "TST:SituationNumber:1234";
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
-    static String datasource = "RUT";
 
-    static PtSituationElement createPtSituationElement() {
+    static PtSituationElement createPtSituationElement(String datasource) {
         PtSituationElement ptSituation = new PtSituationElement();
 
         SituationNumber situationNumber = new SituationNumber();
