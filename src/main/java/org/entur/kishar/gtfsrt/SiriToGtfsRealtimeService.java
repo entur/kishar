@@ -58,7 +58,11 @@ public class SiriToGtfsRealtimeService {
 
     private boolean newData = false;
 
-    private List<String> datasourceWhitelist;
+    private List<String> datasourceETWhitelist;
+
+    private List<String> datasourceVMWhitelist;
+
+    private List<String> datasourceSXWhitelist;
 
     /**
      * Time, in seconds, after which a vehicle update is considered stale
@@ -71,8 +75,13 @@ public class SiriToGtfsRealtimeService {
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
-    public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory, @Value("kishar.datasource.whitelist") List<String> datasourceWhitelist) {
-        this.datasourceWhitelist = datasourceWhitelist;
+    public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
+                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceETWhitelist,
+                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceVMWhitelist,
+                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceSXWhitelist) {
+        this.datasourceETWhitelist = datasourceETWhitelist;
+        this.datasourceVMWhitelist = datasourceVMWhitelist;
+        this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
     }
 
@@ -261,8 +270,8 @@ public class SiriToGtfsRealtimeService {
         String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
         Preconditions.checkNotNull(datasource, "datasource");
 
-        if (datasourceWhitelist != null && !datasourceWhitelist.isEmpty()) {
-            Preconditions.checkState(datasourceWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
 
         checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
@@ -276,8 +285,8 @@ public class SiriToGtfsRealtimeService {
         String datasource = estimatedVehicleJourney.getDataSource();
         Preconditions.checkNotNull(datasource, "datasource");
 
-        if (datasourceWhitelist != null && !datasourceWhitelist.isEmpty()) {
-            Preconditions.checkState(datasourceWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceETWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls().getEstimatedCalls(), "EstimatedCalls");
@@ -292,8 +301,8 @@ public class SiriToGtfsRealtimeService {
         String datasource = situation.getParticipantRef().getValue();
         Preconditions.checkNotNull(datasource, "datasource");
 
-        if (datasourceWhitelist != null && !datasourceWhitelist.isEmpty()) {
-            Preconditions.checkState(datasourceWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceSXWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
     }
 
