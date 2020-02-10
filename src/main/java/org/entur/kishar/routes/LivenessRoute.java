@@ -15,10 +15,16 @@
 
 package org.entur.kishar.routes;
 
+import org.apache.camel.Exchange;
+import org.entur.kishar.metrics.PrometheusMetricsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class LivenessRoute extends RestRouteBuilder {
+
+    @Autowired
+    PrometheusMetricsService prometheusRegistry;
 
     @Override
     public void configure() throws Exception {
@@ -29,7 +35,19 @@ public class LivenessRoute extends RestRouteBuilder {
                 .get("ready").route().transform().constant("OK").endRest()
                 .get("up").route().transform().constant("OK").endRest()
                 .get("healthy").route().transform().constant("OK").endRest()
+                .get("scrape").to("direct:scrape")
+        ;
+
+        // Application is ready to accept traffic
+        from("direct:scrape")
+                .process(p -> {
+                    if (prometheusRegistry != null) {
+                        p.getOut().setBody(prometheusRegistry.scrape());
+                    }
+                })
+                .setHeader(Exchange.CONTENT_TYPE, constant("text/plain"))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
+                .routeId("health.scrape")
         ;
     }
-
 }

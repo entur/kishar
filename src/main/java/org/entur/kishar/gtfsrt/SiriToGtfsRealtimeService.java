@@ -21,6 +21,7 @@ import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
+import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,6 +65,9 @@ public class SiriToGtfsRealtimeService {
 
     private List<String> datasourceSXWhitelist;
 
+    @Autowired
+    private PrometheusMetricsService prometheusMetricsService;
+
     /**
      * Time, in seconds, after which a vehicle update is considered stale
      */
@@ -95,6 +99,9 @@ public class SiriToGtfsRealtimeService {
     };
 
     public Object getTripUpdates(String contentType, String datasource) {
+        if (prometheusMetricsService != null) {
+            prometheusMetricsService.registerIncomingRequest("SIRI_ET", 1);
+        }
         FeedMessage feedMessage = tripUpdates;
         if (datasource != null && !datasource.isEmpty()) {
             feedMessage = tripUpdatesByDatasource.get(datasource);
@@ -105,6 +112,9 @@ public class SiriToGtfsRealtimeService {
         return encodeFeedMessage(feedMessage, contentType);
     }
     public Object getVehiclePositions(String contentType, String datasource) {
+        if (prometheusMetricsService != null) {
+            prometheusMetricsService.registerIncomingRequest("SIRI_VM", 1);
+        }
         FeedMessage feedMessage = vehiclePositions;
         if (datasource != null && !datasource.isEmpty()) {
             feedMessage = vehiclePositionsByDatasource.get(datasource);
@@ -115,6 +125,9 @@ public class SiriToGtfsRealtimeService {
         return encodeFeedMessage(feedMessage, contentType);
     }
     public Object getAlerts(String contentType, String datasource) {
+        if (prometheusMetricsService != null) {
+            prometheusMetricsService.registerIncomingRequest("SIRI_SX", 1);
+        }
         FeedMessage feedMessage = alerts;
         if (datasource != null && !datasource.isEmpty()) {
             feedMessage = alertsByDatasource.get(datasource);
@@ -271,6 +284,13 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(datasource, "datasource");
 
         if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
+            if (prometheusMetricsService != null) {
+                if (datasourceVMWhitelist.contains(datasource)) {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, true);
+                } else {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, false);
+                }
+            }
             Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
 
@@ -286,6 +306,13 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(datasource, "datasource");
 
         if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
+            if (prometheusMetricsService != null) {
+                if (datasourceETWhitelist.contains(datasource)) {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, true);
+                } else {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, false);
+                }
+            }
             Preconditions.checkState(datasourceETWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
@@ -302,6 +329,13 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(datasource, "datasource");
 
         if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {
+            if (prometheusMetricsService != null) {
+                if (datasourceSXWhitelist.contains(datasource)) {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, true);
+                } else {
+                    prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, false);
+                }
+            }
             Preconditions.checkState(datasourceSXWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
     }
