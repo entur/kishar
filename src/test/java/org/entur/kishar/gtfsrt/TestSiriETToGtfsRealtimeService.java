@@ -1,5 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
+import com.google.common.collect.Lists;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,7 +21,7 @@ public class TestSiriETToGtfsRealtimeService {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory());
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"), null, null);
     }
 
     @Test
@@ -29,14 +30,15 @@ public class TestSiriETToGtfsRealtimeService {
         int stopCount = 5;
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "RUT";
 
-        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef);
+        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef, datasource);
 
         rtService.processDelivery(siri);
 
         // GTFS-RT is produced asynchronously - should be empty at first
 
-        Object tripUpdates = rtService.getTripUpdates("application/json");
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -45,12 +47,12 @@ public class TestSiriETToGtfsRealtimeService {
         assertTrue(entityList.isEmpty());
 
         // Assert json and binary format
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null));
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
         rtService.writeOutput();
 
-        tripUpdates = rtService.getTripUpdates("application/json");
+        tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -59,7 +61,7 @@ public class TestSiriETToGtfsRealtimeService {
         entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
 
-        byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null));
+        byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
     }
@@ -71,13 +73,14 @@ public class TestSiriETToGtfsRealtimeService {
         int stopCount = 5;
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "RUT";
 
-        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef);
+        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef, datasource);
 
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        Object tripUpdates = rtService.getTripUpdates("application/json");
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -85,7 +88,7 @@ public class TestSiriETToGtfsRealtimeService {
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
 
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null));
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
         GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
@@ -127,12 +130,125 @@ public class TestSiriETToGtfsRealtimeService {
     }
 
     @Test
+    public void testEtToTripUpdateFilterOnDatasource() throws IOException {
+
+        String lineRefValue = "TST:Line:1234";
+        int delayPerStop = 30;
+        String datedVehicleJourneyRef1 = "TST:ServiceJourney:1234";
+        String datedVehicleJourneyRef2 = "TST:ServiceJourney:1235";
+        String datasource1 = "RUT";
+        String datasource2 = "BNR";
+
+        Siri siriRUT = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef1, datasource1);
+        Siri siriBNR = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef2, datasource2);
+
+        rtService.processDelivery(siriRUT);
+        rtService.processDelivery(siriBNR);
+        rtService.writeOutput();
+
+        Object tripUpdates = rtService.getTripUpdates("application/json", "RUT");
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.TripUpdate tripUpdate = entity.getTripUpdate();
+        assertNotNull(tripUpdate);
+
+        assertEquals(1, tripUpdate.getStopTimeUpdateCount());
+
+        tripUpdates = rtService.getTripUpdates("application/json", "BNR");
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        tripUpdate = entity.getTripUpdate();
+        assertNotNull(tripUpdate);
+
+        assertEquals(1, tripUpdate.getStopTimeUpdateCount());
+
+        tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        assertEquals(2, entityList.size());
+    }
+
+    @Test
+    public void testEtToTripUpdateNoWhitelist() throws IOException {
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, null);
+
+        String lineRefValue = "TST:Line:1234";
+        int delayPerStop = 30;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "RUT";
+
+        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
+
+        rtService.processDelivery(siri);
+        rtService.writeOutput();
+
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.TripUpdate tripUpdate = entity.getTripUpdate();
+        assertNotNull(tripUpdate);
+
+        assertEquals(1, tripUpdate.getStopTimeUpdateCount());
+
+        init();
+    }
+
+    @Test
+    public void testEtToTripUpdateIgnoreDatasourceNotInWhitelist() throws IOException {
+
+        String lineRefValue = "TST:Line:1234";
+        int delayPerStop = 30;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "NSB";
+
+        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
+
+        rtService.processDelivery(siri);
+        rtService.writeOutput();
+
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertTrue(entityList.isEmpty());
+    }
+
+    @Test
     public void testEtWithoutFramedVehicleRef() throws IOException {
         String lineRefValue = "TST:Line:1234";
         String datedVehicleJourneyRef = null;
+        String datasource = "RUT";
 
         // Assert that ET is ignored when framedVehicleRef is null
-        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef);
+        Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef, datasource);
         assertNull(siri.getServiceDelivery().getEstimatedTimetableDeliveries().get(0)
                 .getEstimatedJourneyVersionFrames().get(0)
                 .getEstimatedVehicleJourneies().get(0)
@@ -140,7 +256,7 @@ public class TestSiriETToGtfsRealtimeService {
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        Object tripUpdates = rtService.getTripUpdates("application/json");
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -150,7 +266,7 @@ public class TestSiriETToGtfsRealtimeService {
 
 
         datedVehicleJourneyRef = "TTT:ServiceJourney:1234";
-        siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef);
+        siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef, datasource);
 
         assertNotNull(siri.getServiceDelivery().getEstimatedTimetableDeliveries().get(0)
                 .getEstimatedJourneyVersionFrames().get(0)
@@ -160,7 +276,7 @@ public class TestSiriETToGtfsRealtimeService {
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        tripUpdates = rtService.getTripUpdates("application/json");
+        tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -170,7 +286,7 @@ public class TestSiriETToGtfsRealtimeService {
 
     }
 
-    private Siri createSiriEtDelivery(String lineRefValue, List<? extends EstimatedCall> calls, String datedVehicleJourneyRef) {
+    private Siri createSiriEtDelivery(String lineRefValue, List<? extends EstimatedCall> calls, String datedVehicleJourneyRef, String datasource) {
         Siri siri = new Siri();
         ServiceDelivery serviceDelivery = new ServiceDelivery();
         siri.setServiceDelivery(serviceDelivery);
@@ -183,6 +299,7 @@ public class TestSiriETToGtfsRealtimeService {
 
         estimatedVehicleJourney.setLineRef(createLineRef(lineRefValue));
         estimatedVehicleJourney.setFramedVehicleJourneyRef(createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef));
+        estimatedVehicleJourney.setDataSource(datasource);
 
         EstimatedVehicleJourney.EstimatedCalls estimatedCalls = new EstimatedVehicleJourney.EstimatedCalls();
         estimatedCalls.getEstimatedCalls().addAll(calls);

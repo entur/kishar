@@ -41,19 +41,19 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
         ;
 
         from("direct:getTripUpdates")
-                .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type})")
+                .bean(siriToGtfsRealtimeService, "getTripUpdates(${header.Content-Type},${header.datasource})")
                 .setHeader("Content-Disposition", constant("attachment; filename=trip-updates.pbf"))
                 .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
         from("direct:getVehiclePositions")
-                .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type})")
+                .bean(siriToGtfsRealtimeService, "getVehiclePositions(${header.Content-Type},${header.datasource})")
                 .setHeader("Content-Disposition", constant("attachment; filename=vehicle-positions.pbf"))
                 .setHeader("Content-Type", constant("application/octet-stream"))
         ;
 
         from("direct:getAlerts")
-                .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type})")
+                .bean(siriToGtfsRealtimeService, "getAlerts(${header.Content-Type},${header.datasource})")
                 .setHeader("Content-Disposition", constant("attachment; filename=alerts.pbf"))
                 .setHeader("Content-Type", constant("application/octet-stream"))
         ;

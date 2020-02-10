@@ -8,7 +8,7 @@ public class Helper {
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
 
-    static PtSituationElement createPtSituationElement() {
+    static PtSituationElement createPtSituationElement(String datasource) {
         PtSituationElement ptSituation = new PtSituationElement();
 
         SituationNumber situationNumber = new SituationNumber();
@@ -22,6 +22,10 @@ public class Helper {
         DefaultedTextStructure description = new DefaultedTextStructure();
         description.setValue(descriptionValue);
         ptSituation.getDescriptions().add(description);
+
+        RequestorRef requestorRef = new RequestorRef();
+        requestorRef.setValue(datasource);
+        ptSituation.setParticipantRef(requestorRef);
         return ptSituation;
     }
 

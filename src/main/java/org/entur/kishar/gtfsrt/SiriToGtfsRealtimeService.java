@@ -15,6 +15,8 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
+import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
@@ -22,6 +24,7 @@ import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import uk.org.siri.siri20.*;
 import uk.org.siri.siri20.SituationExchangeDeliveryStructure.Situations;
@@ -55,15 +58,30 @@ public class SiriToGtfsRealtimeService {
 
     private boolean newData = false;
 
+    private List<String> datasourceETWhitelist;
+
+    private List<String> datasourceVMWhitelist;
+
+    private List<String> datasourceSXWhitelist;
+
     /**
      * Time, in seconds, after which a vehicle update is considered stale
      */
     private static final int staleDataThreshold = 5 * 60;
     private FeedMessage tripUpdates = createFeedMessageBuilder().build();
+    private Map<String, FeedMessage> tripUpdatesByDatasource = Maps.newHashMap();
     private FeedMessage vehiclePositions = createFeedMessageBuilder().build();
+    private Map<String, FeedMessage> vehiclePositionsByDatasource = Maps.newHashMap();
     private FeedMessage alerts = createFeedMessageBuilder().build();
+    private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
-    public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory) {
+    public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
+                                     @Value("kishar.datasource.et.whitelist") List<String> datasourceETWhitelist,
+                                     @Value("kishar.datasource.vm.whitelist") List<String> datasourceVMWhitelist,
+                                     @Value("kishar.datasource.sx.whitelist") List<String> datasourceSXWhitelist) {
+        this.datasourceETWhitelist = datasourceETWhitelist;
+        this.datasourceVMWhitelist = datasourceVMWhitelist;
+        this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
     }
 
@@ -76,14 +94,35 @@ public class SiriToGtfsRealtimeService {
         }
     };
 
-    public Object getTripUpdates(String contentType) {
-        return encodeFeedMessage(tripUpdates, contentType);
+    public Object getTripUpdates(String contentType, String datasource) {
+        FeedMessage feedMessage = tripUpdates;
+        if (datasource != null && !datasource.isEmpty()) {
+            feedMessage = tripUpdatesByDatasource.get(datasource);
+            if (feedMessage == null) {
+                feedMessage = createFeedMessageBuilder().build();
+            }
+        }
+        return encodeFeedMessage(feedMessage, contentType);
     }
-    public Object getVehiclePositions(String contentType) {
-        return encodeFeedMessage(vehiclePositions, contentType);
+    public Object getVehiclePositions(String contentType, String datasource) {
+        FeedMessage feedMessage = vehiclePositions;
+        if (datasource != null && !datasource.isEmpty()) {
+            feedMessage = vehiclePositionsByDatasource.get(datasource);
+            if (feedMessage == null) {
+                feedMessage = createFeedMessageBuilder().build();
+            }
+        }
+        return encodeFeedMessage(feedMessage, contentType);
     }
-    public Object getAlerts(String contentType) {
-        return encodeFeedMessage(alerts, contentType);
+    public Object getAlerts(String contentType, String datasource) {
+        FeedMessage feedMessage = alerts;
+        if (datasource != null && !datasource.isEmpty()) {
+            feedMessage = alertsByDatasource.get(datasource);
+            if (feedMessage == null) {
+                feedMessage = createFeedMessageBuilder().build();
+            }
+        }
+        return encodeFeedMessage(feedMessage, contentType);
     }
 
     private Object encodeFeedMessage(FeedMessage feedMessage, String contentType) {
@@ -91,7 +130,10 @@ public class SiriToGtfsRealtimeService {
         if (contentType != null && contentType.equals(MEDIA_TYPE_APPLICATION_JSON)) {
             return feedMessage;
         }
-        return feedMessage.toByteArray();
+        if (feedMessage != null) {
+            return feedMessage.toByteArray();
+        }
+        return null;
     }
 
     public void processDelivery(Siri siri) throws IOException {
@@ -115,6 +157,9 @@ public class SiriToGtfsRealtimeService {
                         String key = "Missing " + ex.getMessage();
                         errorMap.put(key, errorMap.getOrDefault(key, 0) + 1);
                         continue;
+                    } catch (IllegalStateException ex) {
+                        LOG.debug("EstimatedVehicleJourney with precondition failed: {}.", ex.getMessage());
+                        continue;
                     }
                 }
                 LOG.info("Processed {} estimatedVehicleJourneys in {} ms", estimatedVehicleJourneies.size(), (System.currentTimeMillis()-t1));
@@ -134,21 +179,36 @@ public class SiriToGtfsRealtimeService {
                     String key = "Missing " + ex.getMessage();
                     errorMap.put(key, errorMap.getOrDefault(key, 0) + 1);
                     continue;
+                } catch (IllegalStateException ex) {
+                    LOG.debug("VehicleActivity with precondition failed: {}.", ex.getMessage());
+                    continue;
                 }
             }
             LOG.info("Processed {} VehicleActivities in {} ms", vmDelivery.getVehicleActivities().size(), (System.currentTimeMillis()-t1));
             logErrorMap( "Errors VM", errorMap);
         }
         for (SituationExchangeDeliveryStructure sxDelivery : serviceDelivery.getSituationExchangeDeliveries()) {
+            Map<String, Integer> errorMap = new HashMap<>();
             Situations situations = sxDelivery.getSituations();
             if (situations == null) {
                 continue;
             }
             long t1 = System.currentTimeMillis();
             for (PtSituationElement situation : situations.getPtSituationElements()) {
-                process(serviceDelivery, situation);
+                try {
+                    process(serviceDelivery, situation);
+                } catch (NullPointerException ex) {
+                    LOG.debug("Situation with missing: {}.", ex.getMessage());
+                    String key = "Missing " + ex.getMessage();
+                    errorMap.put(key, errorMap.getOrDefault(key, 0) + 1);
+                    continue;
+                } catch (IllegalStateException ex) {
+                    LOG.debug("Situation with precondition failed: {}.", ex.getMessage());
+                    continue;
+                }
             }
             LOG.info("Processed {} Situations in {} ms", situations.getPtSituationElements().size(), (System.currentTimeMillis()-t1));
+            logErrorMap( "Errors VM", errorMap);
         }
     }
 
@@ -207,6 +267,13 @@ public class SiriToGtfsRealtimeService {
 
         Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
+        String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
+        Preconditions.checkNotNull(datasource, "datasource");
+
+        if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        }
+
         checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
 
     }
@@ -215,9 +282,28 @@ public class SiriToGtfsRealtimeService {
 
         checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
 
+        String datasource = estimatedVehicleJourney.getDataSource();
+        Preconditions.checkNotNull(datasource, "datasource");
+
+        if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceETWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        }
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls().getEstimatedCalls(), "EstimatedCalls");
 
+    }
+
+    private void checkPreconditions(PtSituationElement situation) {
+        Preconditions.checkNotNull(situation.getSituationNumber());
+        Preconditions.checkNotNull(situation.getSituationNumber().getValue());
+
+        Preconditions.checkNotNull(situation.getParticipantRef(), "datasource");
+        String datasource = situation.getParticipantRef().getValue();
+        Preconditions.checkNotNull(datasource, "datasource");
+
+        if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {
+            Preconditions.checkState(datasourceSXWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        }
     }
 
     private void checkPreconditions(FramedVehicleJourneyRefStructure fvjRef) {
@@ -249,11 +335,8 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void process(ServiceDelivery delivery, PtSituationElement situation) {
-        SituationNumber situationNumber = situation.getSituationNumber();
-        if (situationNumber == null || situationNumber.getValue() == null) {
-            LOG.warn("PtSituationElement did not specify a SituationNumber");
-        }
-        String id = situationNumber.getValue();
+        checkPreconditions(situation);
+        String id = situation.getSituationNumber().getValue();
         String producer = null;
         if (delivery.getProducerRef() != null) {
             producer = delivery.getProducerRef().getValue();
@@ -282,6 +365,7 @@ public class SiriToGtfsRealtimeService {
     private void writeTripUpdates() throws IOException {
 
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
+        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
         long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
         for (Iterator<EstimatedVehicleJourneyData> it = dataByTimetable.values().iterator(); it.hasNext(); ) {
@@ -292,12 +376,18 @@ public class SiriToGtfsRealtimeService {
                 continue;
             }
 
-            EstimatedVehicleJourney vehicleJourney = data.geEstimatedVehicleJourney();
+            EstimatedVehicleJourney vehicleJourney = data.getEstimatedVehicleJourney();
 
             if (vehicleJourney.isMonitored() != null && vehicleJourney.isMonitored()) {
                 if (vehicleJourney.isCancellation() != null && !vehicleJourney.isCancellation()) {
                     continue;
                 }
+            }
+
+            String datasource = vehicleJourney.getDataSource();
+            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
+            if (feedMessageBuilderByDatasource == null) {
+                feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
             TripUpdate.Builder tripUpdate = TripUpdate.newBuilder();
@@ -318,9 +408,19 @@ public class SiriToGtfsRealtimeService {
 
             entity.setTripUpdate(tripUpdate);
             feedMessageBuilder.addEntity(entity);
+            feedMessageBuilderByDatasource.addEntity(entity);
+            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
         }
 
-        setTripUpdates(feedMessageBuilder.build());
+        setTripUpdates(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
+    }
+
+    private Map<String, FeedMessage> buildFeedMessageMap(Map<String, FeedMessage.Builder> feedMessageBuilderMap) {
+        Map<String, FeedMessage> feedMessageMap = Maps.newHashMap();
+        for (String key : feedMessageBuilderMap.keySet()) {
+            feedMessageMap.put(key, feedMessageBuilderMap.get(key).build());
+        }
+        return feedMessageMap;
     }
 
     private void applyStopSpecificDelayToTripUpdateIfApplicable(
@@ -435,6 +535,7 @@ public class SiriToGtfsRealtimeService {
     private void writeVehiclePositions() throws IOException {
 
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
+        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
         long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
         for (Iterator<VehicleData> it = dataByVehicle.values().iterator(); it.hasNext(); ) {
@@ -456,6 +557,11 @@ public class SiriToGtfsRealtimeService {
 
             if (location != null && location.getLatitude() != null
                     && location.getLongitude() != null) {
+                String datasource = mvj.getDataSource();
+                FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
+                if (feedMessageBuilderByDatasource == null) {
+                    feedMessageBuilderByDatasource = createFeedMessageBuilder();
+                }
 
                 VehiclePosition.Builder vp = VehiclePosition.newBuilder();
 
@@ -483,10 +589,12 @@ public class SiriToGtfsRealtimeService {
 
                 entity.setVehicle(vp);
                 feedMessageBuilder.addEntity(entity);
+                feedMessageBuilderByDatasource.addEntity(entity);
+                feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
             }
         }
 
-        setVehiclePositions(feedMessageBuilder.build());
+        setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
     }
 
     private String getVehicleIdForKey(TripAndVehicleKey key) {
@@ -499,6 +607,7 @@ public class SiriToGtfsRealtimeService {
 
     private void writeAlerts() {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
+        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
         ZonedDateTime now = ZonedDateTime.now();
 
@@ -506,6 +615,12 @@ public class SiriToGtfsRealtimeService {
             AlertData data = it.next();
 
             PtSituationElement situation = data.getSituation();
+
+            String datasource = situation.getParticipantRef().getValue();
+            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
+            if (feedMessageBuilderByDatasource == null) {
+                feedMessageBuilderByDatasource = createFeedMessageBuilder();
+            }
 
             /**
              * If the situation has been closed or has expired, we no longer show the
@@ -533,33 +648,38 @@ public class SiriToGtfsRealtimeService {
 
             entity.setAlert(alert);
             feedMessageBuilder.addEntity(entity);
+            feedMessageBuilderByDatasource.addEntity(entity);
+            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
         }
 
-        setAlerts(feedMessageBuilder.build());
+        setAlerts(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
     }
 
     public FeedMessage getTripUpdates() {
         return tripUpdates;
     }
 
-    public void setTripUpdates(FeedMessage tripUpdates) {
+    public void setTripUpdates(FeedMessage tripUpdates, Map<String, FeedMessage> tripUpdatesByDatasource) {
         this.tripUpdates = tripUpdates;
+        this.tripUpdatesByDatasource = tripUpdatesByDatasource;
     }
 
     public FeedMessage getVehiclePositions() {
         return vehiclePositions;
     }
 
-    public void setVehiclePositions(FeedMessage vehiclePositions) {
+    public void setVehiclePositions(FeedMessage vehiclePositions, Map<String, FeedMessage> vehiclePositionsByDatasource) {
         this.vehiclePositions = vehiclePositions;
+        this.vehiclePositionsByDatasource = vehiclePositionsByDatasource;
     }
 
     public FeedMessage getAlerts() {
         return alerts;
     }
 
-    public void setAlerts(FeedMessage alerts) {
+    public void setAlerts(FeedMessage alerts, Map<String, FeedMessage> alertsByDatasource) {
         this.alerts = alerts;
+        this.alertsByDatasource = alertsByDatasource;
     }
 
     private boolean isDataStale(long timestamp, long currentTime) {

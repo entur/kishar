@@ -1,5 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
+import com.google.common.collect.Lists;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,7 +19,7 @@ public class TestSiriVMToGtfsRealtimeService {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory());
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, Lists.newArrayList("RUT"), null);
     }
 
     @Test
@@ -29,13 +30,14 @@ public class TestSiriVMToGtfsRealtimeService {
         double longitude = 59.63;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "RUT";
 
-        Siri siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue);
+        Siri siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
 
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        Object vehiclePositions = rtService.getVehiclePositions("application/json");
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
         assertNotNull(vehiclePositions);
         assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
 
@@ -44,7 +46,7 @@ public class TestSiriVMToGtfsRealtimeService {
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
 
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null));
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
         GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
@@ -61,18 +63,59 @@ public class TestSiriVMToGtfsRealtimeService {
     }
 
     @Test
+    public void testVmToVehiclePositionWithDatasourceFiltering() throws IOException {
+
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef1 = "TST:ServiceJourney:1234";
+        String datedVehicleJourneyRef2 = "TST:ServiceJourney:1235";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource1 = "RUT";
+        String datasource2 = "BNR";
+
+        Siri siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
+        Siri siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
+
+        rtService.processDelivery(siriRUT);
+        rtService.processDelivery(siriBNR);
+        rtService.writeOutput();
+
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
+        assertNotNull(vehiclePositions);
+        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+        assertEquals(1, entityList.size());
+
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
+        assertEquals(feedMessage, byteArrayFeedMessage);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        assertEquals(datedVehicleJourneyRef1, vehiclePosition.getTrip().getTripId());
+    }
+
+    @Test
     public void testVmWithoutFramedVehicleRef() throws IOException {
         String lineRefValue = "TST:Line:1234";
         double latitude = 10.56;
         double longitude = 59.63;
         String datedVehicleJourneyRef = null;
         String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "RUT";
 
-        Siri siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue);
+        Siri siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        Object vehiclePositions = rtService.getVehiclePositions("application/json");
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
         assertNotNull(vehiclePositions);
         assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
 
@@ -95,7 +138,7 @@ public class TestSiriVMToGtfsRealtimeService {
         return loc;
     }
 
-    private Siri createSiriVmDelivery(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue) {
+    private Siri createSiriVmDelivery(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue, String datasource) {
         Siri siri = new Siri();
         ServiceDelivery serviceDelivery = new ServiceDelivery();
         siri.setServiceDelivery(serviceDelivery);
@@ -110,6 +153,8 @@ public class TestSiriVMToGtfsRealtimeService {
         mvj.setVehicleLocation(createLocation(longitude, latitude));
 
         mvj.setVehicleRef(createVehicleRef(vehicleRefValue));
+
+        mvj.setDataSource(datasource);
 
         activity.setMonitoredVehicleJourney(mvj);
         activity.setRecordedAtTime(ZonedDateTime.now());
