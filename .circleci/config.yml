@@ -59,7 +59,7 @@ jobs:
         root: ~/project
         paths:
         - target
-        - pom.xml
+        - Dockerfile
         - .circleci
   deploy-docker:
     docker:
