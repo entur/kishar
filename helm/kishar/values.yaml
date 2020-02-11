@@ -23,9 +23,9 @@ configmap:
     port: 8888
   polling:
     url:
-      et: http4://anshar/anshar/rest/et
-      vm: http4://anshar/anshar/rest/vm
-      sx: http4://anshar/anshar/rest/sx
+      et: http4://anshar.default/anshar/rest/et
+      vm: http4://anshar.default/anshar/rest/vm
+      sx: http4://anshar.default/anshar/rest/sx
     period: 15s
   datasource:
     whitelist:
