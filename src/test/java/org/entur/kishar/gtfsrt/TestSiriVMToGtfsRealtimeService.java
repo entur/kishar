@@ -1,6 +1,7 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Lists;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
@@ -8,23 +9,24 @@ import uk.org.siri.siri20.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.ZonedDateTime;
 import java.util.List;
 
 import static junit.framework.TestCase.*;
 import static org.entur.kishar.gtfsrt.Helper.createLineRef;
 
-public class TestSiriVMToGtfsRealtimeService {
-    SiriToGtfsRealtimeService rtService;
+public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest{
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, Lists.newArrayList("RUT"), null);
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, Lists.newArrayList("RUT"), null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
     }
 
     @Test
-    public void testVmToVehiclePosition() throws IOException {
+    public void testIncomingAtPercentageVmToVehiclePosition() throws IOException {
 
+        String stopPointRefValue = "TST:Quay:1234";
         String lineRefValue = "TST:Line:1234";
         double latitude = 10.56;
         double longitude = 59.63;
@@ -32,22 +34,22 @@ public class TestSiriVMToGtfsRealtimeService {
         String vehicleRefValue = "TST:Vehicle:1234";
         String datasource = "RUT";
 
-        Siri siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
+        float bearing = 123.45F;
+        long velocity = 56;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.FULL;
+        int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
+        int distance = 10000;
+
+        boolean isVehicleAtStop = false;
+
+        Siri siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+                datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
+                velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
         rtService.processDelivery(siri);
         rtService.writeOutput();
 
-        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
-        assertNotNull(vehiclePositions);
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
-
-
-        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
-        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
-        assertFalse(entityList.isEmpty());
-
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
-        assertEquals(feedMessage, byteArrayFeedMessage);
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
 
         GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
         assertNotNull(entity);
@@ -57,9 +59,94 @@ public class TestSiriVMToGtfsRealtimeService {
         assertEquals(datedVehicleJourneyRef, vehiclePosition.getTrip().getTripId());
         assertEquals(lineRefValue, vehiclePosition.getTrip().getRouteId());
         assertEquals(vehicleRefValue, vehiclePosition.getVehicle().getId());
-        assertNotNull(vehiclePosition.getPosition());
-        assertEquals((float)latitude, vehiclePosition.getPosition().getLatitude());
-        assertEquals((float)longitude, vehiclePosition.getPosition().getLongitude());
+
+        assertEquals(stopPointRefValue, vehiclePosition.getStopId());
+
+        assertEquals(GtfsRealtime.VehiclePosition.OccupancyStatus.FULL, vehiclePosition.getOccupancyStatus());
+        assertEquals(GtfsRealtime.VehiclePosition.VehicleStopStatus.INCOMING_AT, vehiclePosition.getCurrentStatus());
+
+        final GtfsRealtime.Position position = vehiclePosition.getPosition();
+        assertNotNull(position);
+        assertEquals((float)latitude, position.getLatitude());
+        assertEquals((float)longitude, position.getLongitude());
+
+        assertEquals(bearing, position.getBearing());
+        assertEquals((float)velocity, position.getSpeed());
+    }
+
+    @Test
+    public void testIncomingAtDistanceVmToVehiclePosition() throws IOException {
+
+        String stopPointRefValue = "TST:Quay:1234";
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "RUT";
+
+        float bearing = 123.45F;
+        long velocity = 56;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.SEATS_AVAILABLE;
+        int progressPercentage = 51;
+        int distance = NEXT_STOP_DISTANCE*2;
+
+        boolean isVehicleAtStop = false;
+
+        Siri siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+                datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
+                velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
+
+        rtService.processDelivery(siri);
+        rtService.writeOutput();
+
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        assertEquals(GtfsRealtime.VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE, vehiclePosition.getOccupancyStatus());
+        assertEquals(GtfsRealtime.VehiclePosition.VehicleStopStatus.INCOMING_AT, vehiclePosition.getCurrentStatus());
+
+    }
+
+    @Test
+    public void testInTransitVmToVehiclePosition() throws IOException {
+
+        String stopPointRefValue = "TST:Quay:1234";
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "RUT";
+
+        float bearing = 123.45F;
+        long velocity = 56;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.STANDING_AVAILABLE;
+        int progressPercentage = NEXT_STOP_PERCENTAGE - 1;
+        int distance = 10000;
+
+        boolean isVehicleAtStop = false;
+
+        Siri siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+                datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
+                velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
+
+        rtService.processDelivery(siri);
+        rtService.writeOutput();
+
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        assertEquals(GtfsRealtime.VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY, vehiclePosition.getOccupancyStatus());
+        assertEquals(GtfsRealtime.VehiclePosition.VehicleStopStatus.IN_TRANSIT_TO, vehiclePosition.getCurrentStatus());
+
     }
 
     @Test
@@ -125,6 +212,21 @@ public class TestSiriVMToGtfsRealtimeService {
 
     }
 
+    private GtfsRealtime.FeedMessage getFeedMessage(SiriToGtfsRealtimeService rtService) throws InvalidProtocolBufferException {
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
+        assertNotNull(vehiclePositions);
+        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) SiriToGtfsRealtimeServiceTest.rtService.getVehiclePositions(null, null));
+        assertEquals(feedMessage, byteArrayFeedMessage);
+        return feedMessage;
+    }
+
     private VehicleRef createVehicleRef(String value) {
         VehicleRef ref = new VehicleRef();
         ref.setValue(value);
@@ -155,6 +257,48 @@ public class TestSiriVMToGtfsRealtimeService {
         mvj.setVehicleRef(createVehicleRef(vehicleRefValue));
 
         mvj.setDataSource(datasource);
+
+        activity.setMonitoredVehicleJourney(mvj);
+        activity.setRecordedAtTime(ZonedDateTime.now());
+        vmDelivery.getVehicleActivities().add(activity);
+        serviceDelivery.getVehicleMonitoringDeliveries().add(vmDelivery);
+        return siri;
+    }
+
+
+    private Siri createSiriVmDelivery(String stopPointRefValue, String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef,
+                                      String vehicleRefValue, String datasource, float bearing, long velocity,
+                                      OccupancyEnumeration occupancy, int progressPercentage, int distance, boolean isVehicleAtStop) {
+        Siri siri = new Siri();
+        ServiceDelivery serviceDelivery = new ServiceDelivery();
+        siri.setServiceDelivery(serviceDelivery);
+        VehicleMonitoringDeliveryStructure vmDelivery = new VehicleMonitoringDeliveryStructure();
+        VehicleActivityStructure activity = new VehicleActivityStructure();
+
+        ProgressBetweenStopsStructure progress = new ProgressBetweenStopsStructure();
+        progress.setPercentage(BigDecimal.valueOf(progressPercentage));
+        progress.setLinkDistance(BigDecimal.valueOf(distance));
+        activity.setProgressBetweenStops(progress);
+
+        VehicleActivityStructure.MonitoredVehicleJourney mvj = new VehicleActivityStructure.MonitoredVehicleJourney();
+
+        mvj.setLineRef(createLineRef(lineRefValue));
+        mvj.setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef));
+        mvj.setVehicleLocation(createLocation(longitude, latitude));
+        mvj.setVehicleRef(createVehicleRef(vehicleRefValue));
+
+        mvj.setBearing(Float.valueOf(bearing));
+        mvj.setVelocity(BigInteger.valueOf(velocity));
+        mvj.setOccupancy(occupancy);
+        mvj.setDataSource(datasource);
+
+        MonitoredCallStructure monitoredCall = new MonitoredCallStructure();
+        monitoredCall.setVehicleAtStop(isVehicleAtStop);
+        StopPointRef stopPointRef = new StopPointRef();
+        stopPointRef.setValue(stopPointRefValue);
+        monitoredCall.setStopPointRef(stopPointRef);
+        mvj.setMonitoredCall(monitoredCall);
+
 
         activity.setMonitoredVehicleJourney(mvj);
         activity.setRecordedAtTime(ZonedDateTime.now());

@@ -16,7 +16,6 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
-import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
@@ -32,6 +31,7 @@ import uk.org.siri.siri20.SituationExchangeDeliveryStructure.Situations;
 import uk.org.siri.siri20.VehicleActivityStructure.MonitoredVehicleJourney;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -79,14 +79,22 @@ public class SiriToGtfsRealtimeService {
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
+    private int closeToNextStopPercentage;
+
+    private int closeToNextStopDistance;
+
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Value("kishar.datasource.et.whitelist") List<String> datasourceETWhitelist,
                                      @Value("kishar.datasource.vm.whitelist") List<String> datasourceVMWhitelist,
-                                     @Value("kishar.datasource.sx.whitelist") List<String> datasourceSXWhitelist) {
+                                     @Value("kishar.datasource.sx.whitelist") List<String> datasourceSXWhitelist,
+                                     @Value("kishar.settings.vm.close.to.stop.percentage") int closeToNextStopPercentage,
+                                     @Value("kishar.settings.vm.close.to.stop.distance") int closeToNextStopDistance) {
         this.datasourceETWhitelist = datasourceETWhitelist;
         this.datasourceVMWhitelist = datasourceVMWhitelist;
         this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
+        this.closeToNextStopPercentage = closeToNextStopPercentage;
+        this.closeToNextStopDistance = closeToNextStopDistance;
     }
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
@@ -583,40 +591,24 @@ public class SiriToGtfsRealtimeService {
             VehicleActivityStructure activity = data.getVehicleActivity();
 
             MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
-            LocationStructure location = mvj.getVehicleLocation();
 
             if (hasVehiclePositionMonitoringError(mvj)) {
                 continue;
             }
 
-            if (location != null && location.getLatitude() != null
-                    && location.getLongitude() != null) {
-                String datasource = mvj.getDataSource();
-                FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
-                if (feedMessageBuilderByDatasource == null) {
-                    feedMessageBuilderByDatasource = createFeedMessageBuilder();
+            String datasource = mvj.getDataSource();
+            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
+            if (feedMessageBuilderByDatasource == null) {
+                feedMessageBuilderByDatasource = createFeedMessageBuilder();
+            }
+
+            VehiclePosition.Builder vp = convertSiriToGtfsRt(activity);
+
+            if (vp != null) {
+
+                if (vp.getTimestamp() <= 0) {
+                    vp.setTimestamp(feedTimestamp);
                 }
-
-                VehiclePosition.Builder vp = VehiclePosition.newBuilder();
-
-                TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
-                vp.setTrip(td);
-
-                VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
-                if (vd != null) {
-                    vp.setVehicle(vd);
-                }
-
-                Instant time = activity.getRecordedAtTime().toInstant();
-                if (time == null) {
-                    time = Instant.ofEpochMilli(feedTimestamp);
-                }
-                vp.setTimestamp(time.getEpochSecond());
-
-                Position.Builder position = Position.newBuilder();
-                position.setLatitude(location.getLatitude().floatValue());
-                position.setLongitude(location.getLongitude().floatValue());
-                vp.setPosition(position);
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
                 entity.setId(getVehicleIdForKey(key));
@@ -629,6 +621,128 @@ public class SiriToGtfsRealtimeService {
         }
 
         setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
+    }
+
+    private VehiclePosition.Builder convertSiriToGtfsRt(VehicleActivityStructure activity) {
+        if (activity == null) {
+            return null;
+        }
+
+        MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
+        if (mvj == null) {
+            return null;
+        }
+
+        LocationStructure location = mvj.getVehicleLocation();
+        VehiclePosition.Builder vp = VehiclePosition.newBuilder();;
+
+        if (location != null && location.getLatitude() != null
+                && location.getLongitude() != null) {
+
+            vp = VehiclePosition.newBuilder();
+
+            TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
+            vp.setTrip(td);
+
+            VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
+            if (vd != null) {
+                vp.setVehicle(vd);
+            }
+
+            Instant time = activity.getRecordedAtTime().toInstant();
+            if (time != null) {
+                vp.setTimestamp(time.getEpochSecond());
+            }
+
+            Position.Builder position = Position.newBuilder();
+            position.setLatitude(location.getLatitude().floatValue());
+            position.setLongitude(location.getLongitude().floatValue());
+
+            if ( mvj.getBearing() != null) {
+                position.setBearing(mvj.getBearing().floatValue());
+            }
+
+            // Speed - not included in profile
+            if ( mvj.getVelocity() != null) {
+                position.setSpeed(mvj.getVelocity().floatValue());
+            }
+
+            //Distance traveled since last stop
+            boolean isCloseToNextStop = false;
+            if (activity.getProgressBetweenStops() != null) {
+                final ProgressBetweenStopsStructure progressBetweenStops = activity.getProgressBetweenStops();
+                if (progressBetweenStops.getPercentage() != null) {
+
+                    isCloseToNextStop = progressBetweenStops.getPercentage().intValue() > closeToNextStopPercentage;
+
+                    final BigDecimal linkDistance = progressBetweenStops.getLinkDistance();
+
+                    if (linkDistance != null) {
+                        final BigDecimal distanceTravelled = linkDistance.multiply(progressBetweenStops.getPercentage().divide(BigDecimal.valueOf(100)));
+                        position.setOdometer(distanceTravelled.doubleValue());
+
+                        if (linkDistance.doubleValue() - distanceTravelled.doubleValue() < closeToNextStopDistance) {
+                            isCloseToNextStop = true;
+                        }
+                    }
+                }
+            }
+
+
+            // VehicleStatus
+            if (mvj.getMonitoredCall() != null) {
+                final MonitoredCallStructure monitoredCall = mvj.getMonitoredCall();
+                if (monitoredCall.isVehicleAtStop() != null && monitoredCall.isVehicleAtStop()) {
+                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.STOPPED_AT);
+                } else if (isCloseToNextStop) {
+                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.INCOMING_AT);
+                } else {
+                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.IN_TRANSIT_TO);
+                }
+
+                final LocationStructure locationAtStop = monitoredCall.getVehicleLocationAtStop();
+                if (locationAtStop != null && locationAtStop.getLatitude() != null && locationAtStop.getLongitude() != null) {
+                    position.setLatitude(locationAtStop.getLatitude().floatValue());
+                    position.setLongitude(locationAtStop.getLongitude().floatValue());
+                }
+
+                if (monitoredCall.getStopPointRef() != null) {
+                    vp.setStopId(monitoredCall.getStopPointRef().getValue());
+                }
+
+                if (monitoredCall.getOrder() != null) {
+                    //TODO: Correct to assume that order == stop_sequence?
+                    vp.setCurrentStopSequence(monitoredCall.getOrder().intValue());
+                }
+            }
+
+            vp.setPosition(position);
+
+            //Occupancy - GTFS-RT experimental feature
+            if (mvj.getOccupancy() != null) {
+                switch (mvj.getOccupancy()) {
+                    case FULL:
+                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.FULL);
+                        break;
+                    case STANDING_AVAILABLE:
+                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY);
+                        break;
+                    case SEATS_AVAILABLE:
+                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE);
+                        break;
+                }
+            }
+
+            //Congestion
+            if (mvj.isInCongestion() != null) {
+                if (mvj.isInCongestion()) {
+                    vp.setCongestionLevel(VehiclePosition.CongestionLevel.CONGESTION);
+                } else {
+                    vp.setCongestionLevel(VehiclePosition.CongestionLevel.RUNNING_SMOOTHLY);
+                }
+            }
+        }
+        return vp;
     }
 
     private String getVehicleIdForKey(TripAndVehicleKey key) {

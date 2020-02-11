@@ -16,12 +16,11 @@ import static junit.framework.TestCase.*;
 import static org.entur.kishar.gtfsrt.Helper.createFramedVehicleJourneyRefStructure;
 import static org.entur.kishar.gtfsrt.Helper.createLineRef;
 
-public class TestSiriETToGtfsRealtimeService {
-    SiriToGtfsRealtimeService rtService;
+public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"), null, null);
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"), null, null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
     }
 
     @Test
@@ -189,7 +188,7 @@ public class TestSiriETToGtfsRealtimeService {
 
     @Test
     public void testEtToTripUpdateNoWhitelist() throws IOException {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, null);
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;

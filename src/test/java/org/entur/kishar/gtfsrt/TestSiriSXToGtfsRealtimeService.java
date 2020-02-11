@@ -15,12 +15,11 @@ import static junit.framework.TestCase.*;
 import static org.entur.kishar.gtfsrt.Helper.createPtSituationElement;
 import static org.entur.kishar.gtfsrt.TestAlertFactory.assertAlert;
 
-public class TestSiriSXToGtfsRealtimeService {
-    SiriToGtfsRealtimeService rtService;
+public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
     @Before
     public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, Lists.newArrayList("RUT"));
+        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, Lists.newArrayList("RUT"), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
     }
 
     @Test
