@@ -33,6 +33,6 @@ chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 release: {{ .Release.Name }}
 team: ror
 slack: talk-ror
-type: bigdaddy
+type: kishar
 namespace: {{ .Release.Namespace }}
 {{- end }}
