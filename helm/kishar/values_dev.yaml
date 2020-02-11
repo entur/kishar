@@ -1,1 +1,33 @@
 env: dev
+
+configmap:
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: info, health, prometheus, env, metrics, loggers
+      prometheus:
+        enabled: true
+    metrics:
+      endpoint:
+        export:
+          prometheus:
+            enabled: true
+  incoming:
+    port: 8888
+  polling:
+    url:
+      et: http4://anshar.default/anshar/rest/et
+      vm: http4://anshar.default/anshar/rest/vm
+      sx: http4://anshar.default/anshar/rest/sx
+    period: 15s
+  datasource:
+    whitelist:
+      et: RUT
+      vm: RUT
+      sx: RUT
+  close_to_stop:
+    percentage:
+      vm: 95
+    distance:
+      vm: 500
