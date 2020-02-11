@@ -84,17 +84,34 @@ public class SiriToGtfsRealtimeService {
     private int closeToNextStopDistance;
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
-                                     @Value("${kishar.datasource.et.whitelist}") List<String> datasourceETWhitelist,
-                                     @Value("${kishar.datasource.vm.whitelist}") List<String> datasourceVMWhitelist,
-                                     @Value("${kishar.datasource.sx.whitelist}") List<String> datasourceSXWhitelist,
+                                     @Value("#{'${kishar.datasource.et.whitelist}'.split(',')}") List<String> datasourceETWhitelist,
+                                     @Value("#{'${kishar.datasource.vm.whitelist}'.split(',')}") List<String> datasourceVMWhitelist,
+                                     @Value("#{'${kishar.datasource.sx.whitelist}'.split(',')}") List<String> datasourceSXWhitelist,
                                      @Value("${kishar.settings.vm.close.to.stop.percentage}") int closeToNextStopPercentage,
                                      @Value("${kishar.settings.vm.close.to.stop.distance}") int closeToNextStopDistance) {
-        this.datasourceETWhitelist = datasourceETWhitelist;
-        this.datasourceVMWhitelist = datasourceVMWhitelist;
-        this.datasourceSXWhitelist = datasourceSXWhitelist;
+        if (whitelistContainsAtLeastOneValue(datasourceETWhitelist)) {
+            this.datasourceETWhitelist = datasourceETWhitelist;
+        }
+        if (whitelistContainsAtLeastOneValue(datasourceVMWhitelist)) {
+            this.datasourceVMWhitelist = datasourceVMWhitelist;
+        }
+        if (whitelistContainsAtLeastOneValue(datasourceSXWhitelist)) {
+            this.datasourceSXWhitelist = datasourceSXWhitelist;
+        }
         this.alertFactory = alertFactory;
         this.closeToNextStopPercentage = closeToNextStopPercentage;
         this.closeToNextStopDistance = closeToNextStopDistance;
+    }
+
+    private Boolean whitelistContainsAtLeastOneValue(List<String> whitelist) {
+        if (whitelist != null && !whitelist.isEmpty()) {
+            for (String datasource : whitelist) {
+                if (datasource != null && !datasource.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
@@ -290,15 +307,15 @@ public class SiriToGtfsRealtimeService {
 
         String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
         Preconditions.checkNotNull(datasource, "datasource");
+        if (prometheusMetricsService != null) {
+            if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource)) {
+                prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, true);
+            } else {
+                prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, false);
+            }
+        }
 
         if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
-            if (prometheusMetricsService != null) {
-                if (datasourceVMWhitelist.contains(datasource)) {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, true);
-                } else {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, false);
-                }
-            }
             Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
 
@@ -312,17 +329,18 @@ public class SiriToGtfsRealtimeService {
 
         String datasource = estimatedVehicleJourney.getDataSource();
         Preconditions.checkNotNull(datasource, "datasource");
+        if (prometheusMetricsService != null) {
+            if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource)) {
+                prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, true);
+            } else {
+                prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, false);
+            }
+        }
 
         if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
-            if (prometheusMetricsService != null) {
-                if (datasourceETWhitelist.contains(datasource)) {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, true);
-                } else {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, false);
-                }
-            }
             Preconditions.checkState(datasourceETWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
+
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls().getEstimatedCalls(), "EstimatedCalls");
 
@@ -335,15 +353,15 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(situation.getParticipantRef(), "datasource");
         String datasource = situation.getParticipantRef().getValue();
         Preconditions.checkNotNull(datasource, "datasource");
+        if (prometheusMetricsService != null) {
+            if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty() && !datasourceSXWhitelist.contains(datasource)) {
+                prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, true);
+            } else {
+                prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, false);
+            }
+        }
 
         if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {
-            if (prometheusMetricsService != null) {
-                if (datasourceSXWhitelist.contains(datasource)) {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, true);
-                } else {
-                    prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, false);
-                }
-            }
             Preconditions.checkState(datasourceSXWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
     }
