@@ -1,0 +1,60 @@
+env: dev
+
+replicas: 1
+
+rollingUpdate:
+  maxSurge: 1
+  maxUnavailable: 1
+
+configmap:
+  incoming:
+    port: 8888
+  polling:
+    url:
+      et: http4://anshar/anshar/rest/et
+      vm: http4://anshar/anshar/rest/vm
+      sx: http4://anshar/anshar/rest/sx
+    period: 15s
+  datasource:
+    whitelist:
+      et: RUT
+      vm: RUT
+      sx: RUT
+
+resources:
+  cpuLimit: "7"
+  memLimit: 6000Mi
+  cpuRequest: "1"
+  memRequest: 4500Mi
+  xmx: 4g
+  xss: 1024m
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 80
+
+configMapMounts:
+  - name: application-config
+    mountPath: /etc/application-config
+    subPath: ""
+    configMap: kishar-config
+    readOnly: false
+
+secretMounts:
+  - name: kishar-service-account
+    secretName: kishar-service-account
+    mountPath: /etc/kishar-service-account
+    subPath: ""
+    readOnly: true
+
+image:
+  identifier: ${artifact.metadata.image}
+  imagePullPolicy: Always
+
+service:
+  http:
+    externalPort: 80
+    internalPort: 8888
+
+namespace: default

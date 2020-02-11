@@ -1,0 +1,5 @@
+env: dev
+
+configmap:
+  serviceaccount:
+    path: /etc/kishar-service-account/secret-carbon.json

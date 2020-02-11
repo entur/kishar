@@ -1,0 +1,5 @@
+env: staging
+
+configmap:
+  serviceaccount:
+    path: /etc/kishar-service-account/secret-radon.json
