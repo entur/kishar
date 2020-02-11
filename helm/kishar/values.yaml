@@ -7,6 +7,18 @@ rollingUpdate:
   maxUnavailable: 1
 
 configmap:
+  management:
+    endpoints:
+      web:
+        exposure:
+          include: info, health, prometheus, env, metrics, loggers
+      prometheus:
+        enabled: true
+    metrics:
+      endpoint:
+        export:
+          prometheus:
+            enabled: true
   incoming:
     port: 8888
   polling:
@@ -20,6 +32,11 @@ configmap:
       et: RUT
       vm: RUT
       sx: RUT
+  close_to_stop:
+    percentage:
+      vm: 95
+    distance:
+      vm: 500
 
 resources:
   cpuLimit: "7"

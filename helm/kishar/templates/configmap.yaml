@@ -1,6 +1,10 @@
 apiVersion: v1
 data:
   application.properties: |-
+    management.endpoints.web.exposure.include={{ .Values.configmap.management.endpoints.web.exposure.include }}
+    management.endpoints.prometheus.enabled={{ .Values.configmap.management.endpoints.prometheus.enabled }}
+    management.metrics.endpoint.export.prometheus.enabled={{ .Values.configmap.management.metrics.endpoint.export.prometheus.enabled }}
+
     kishar.incoming.port={{ .Values.configmap.incoming.port }}
 
     # URL to be used in Camel to fetch data
@@ -15,6 +19,9 @@ data:
     kishar.datasource.vm.whitelist={{ .Values.configmap.datasource.whitelist.vm }}
 
     kishar.datasource.sx.whitelist={{ .Values.configmap.datasource.whitelist.sx }}
+
+    kishar.settings.vm.close.to.stop.percentage={{ .Values.configmap.close_to_stop.percentage.vm }}
+    kishar.settings.vm.close.to.stop.distance={{ .Values.configmap.close_to_stop.distance.vm }}
 kind: ConfigMap
 metadata:
   name: {{ template "kishar.name" . }}-config
