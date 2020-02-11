@@ -15,7 +15,7 @@ aliases:
     echo 'export CIRCLE_PROJECT_REPONAME="$CIRCLE_PROJECT_REPONAME"' >> $BASH_ENV
     echo 'export CIRCLE_SHA1="$CIRCLE_SHA1"' >> $BASH_ENV
     echo 'export BUILD_STATUS_API_KEY="$BUILD_STATUS_API_KEY"' >> $BASH_ENV
-  # /tools/build_notify.sh
+    /tools/build_notify.sh
 jobs:
   build:
     docker:
