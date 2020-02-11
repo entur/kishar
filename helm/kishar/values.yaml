@@ -41,13 +41,6 @@ configMapMounts:
     configMap: kishar-config
     readOnly: false
 
-secretMounts:
-  - name: kishar-service-account
-    secretName: kishar-service-account
-    mountPath: /etc/kishar-service-account
-    subPath: ""
-    readOnly: true
-
 image:
   identifier: ${artifact.metadata.image}
   imagePullPolicy: Always

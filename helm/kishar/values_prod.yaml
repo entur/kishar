@@ -1,5 +1,1 @@
 env: production
-
-configmap:
-  serviceaccount:
-    path: /etc/kishar-service-account/secret-neon.json
