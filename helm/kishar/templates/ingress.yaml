@@ -13,7 +13,7 @@ metadata:
     {{ else if eq .Values.env "dev"}}
     external-dns.alpha.kubernetes.io/target: {{ .Values.ingress.devIp }}
     {{- end}}
-  name: timetable-admin-v1-events
+  name: realtime-v1-gtfs-rt
   namespace: {{ .Release.Namespace }}
 spec:
   rules:
