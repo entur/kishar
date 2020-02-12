@@ -67,4 +67,8 @@ service:
     externalPort: 80
     internalPort: 8888
 
-namespace: default
+ingress:
+  enabled: true
+  devIp: 10.3.247.163
+  stagingIp:
+  productionIp:
