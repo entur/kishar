@@ -37,6 +37,11 @@ configmap:
       vm: 95
     distance:
       vm: 500
+  mqtt:
+    enabled: false
+    host: tcp://mqtt:1883
+    username: kishar
+    password: <password>
 
 resources:
   cpuLimit: "7"
@@ -66,9 +71,3 @@ service:
   http:
     externalPort: 80
     internalPort: 8888
-
-mqtt:
-  enabled: false
-  host: tcp://mqtt:1883
-  username: kishar
-  password: <password>
