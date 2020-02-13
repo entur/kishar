@@ -31,3 +31,7 @@ configmap:
       vm: 95
     distance:
       vm: 500
+
+ingress:
+  enabled: true
+  devIp: 10.3.247.163

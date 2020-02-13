@@ -14,6 +14,10 @@ data:
     kishar.datasource.sx.whitelist={{ .Values.configmap.datasource.whitelist.sx }}
     kishar.settings.vm.close.to.stop.percentage={{ .Values.configmap.close_to_stop.percentage.vm }}
     kishar.settings.vm.close.to.stop.distance={{ .Values.configmap.close_to_stop.distance.vm }}
+    kishar.mqtt.enabled={{ .Values.configmap.mqtt.enabled }}
+    kishar.mqtt.host={{ .Values.configmap.mqtt.host }}
+    kishar.mqtt.username={{ .Values.configmap.mqtt.username }}
+    kishar.mqtt.password={{ .Values.configmap.mqtt.password }}
 kind: ConfigMap
 metadata:
   name: {{ template "kishar.name" . }}-config

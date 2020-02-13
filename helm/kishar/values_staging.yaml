@@ -1,1 +1,4 @@
 env: staging
+
+ingress:
+  enabled: false

@@ -67,8 +67,8 @@ service:
     externalPort: 80
     internalPort: 8888
 
-ingress:
-  enabled: true
-  devIp: 10.3.247.163
-  stagingIp:
-  productionIp:
+mqtt:
+  enabled: false
+  host: tcp://mqtt:1883
+  username: kishar
+  password: <password>
