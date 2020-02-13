@@ -18,11 +18,6 @@ import static org.entur.kishar.gtfsrt.Helper.createLineRef;
 
 public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
-    @Before
-    public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList("RUT", "BNR"), null, null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
-    }
-
     @Test
     public void testAsyncGtfsRtProduction() throws IOException {
         String lineRefValue = "TST:Line:1234";
@@ -130,6 +125,10 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testEtToTripUpdateFilterOnDatasource() throws IOException {
+        // Specifying local service for specific datasource-testing
+        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(),
+                Lists.newArrayList("RUT", "BNR"), Lists.newArrayList(),
+                Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
@@ -141,11 +140,11 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         Siri siriRUT = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef1, datasource1);
         Siri siriBNR = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef2, datasource2);
 
-        rtService.processDelivery(siriRUT);
-        rtService.processDelivery(siriBNR);
-        rtService.writeOutput();
+        localRtService.processDelivery(siriRUT);
+        localRtService.processDelivery(siriBNR);
+        localRtService.writeOutput();
 
-        Object tripUpdates = rtService.getTripUpdates("application/json", "RUT");
+        Object tripUpdates = localRtService.getTripUpdates("application/json", "RUT");
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -160,7 +159,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         assertEquals(1, tripUpdate.getStopTimeUpdateCount());
 
-        tripUpdates = rtService.getTripUpdates("application/json", "BNR");
+        tripUpdates = localRtService.getTripUpdates("application/json", "BNR");
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -175,7 +174,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         assertEquals(1, tripUpdate.getStopTimeUpdateCount());
 
-        tripUpdates = rtService.getTripUpdates("application/json", null);
+        tripUpdates = localRtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -188,7 +187,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testEtToTripUpdateNoWhitelist() throws IOException {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
+        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
@@ -197,10 +196,10 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         Siri siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
 
-        rtService.processDelivery(siri);
-        rtService.writeOutput();
+        localRtService.processDelivery(siri);
+        localRtService.writeOutput();
 
-        Object tripUpdates = rtService.getTripUpdates("application/json", null);
+        Object tripUpdates = localRtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -215,7 +214,6 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         assertEquals(1, tripUpdate.getStopTimeUpdateCount());
 
-        init();
     }
 
     @Test

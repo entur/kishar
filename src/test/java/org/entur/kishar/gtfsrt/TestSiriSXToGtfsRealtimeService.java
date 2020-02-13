@@ -17,11 +17,6 @@ import static org.entur.kishar.gtfsrt.TestAlertFactory.assertAlert;
 
 public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
-    @Before
-    public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, null, Lists.newArrayList("RUT"), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
-    }
-
     @Test
     public void testSituationToAlert() throws IOException {
 

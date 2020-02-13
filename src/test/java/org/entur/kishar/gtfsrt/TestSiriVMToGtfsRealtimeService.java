@@ -3,25 +3,37 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.kishar.App;
 import org.junit.Before;
 import org.junit.Test;
-import uk.org.siri.siri20.*;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import uk.org.siri.siri20.LocationStructure;
+import uk.org.siri.siri20.MonitoredCallStructure;
+import uk.org.siri.siri20.OccupancyEnumeration;
+import uk.org.siri.siri20.ProgressBetweenStopsStructure;
+import uk.org.siri.siri20.ServiceDelivery;
+import uk.org.siri.siri20.Siri;
+import uk.org.siri.siri20.StopPointRef;
+import uk.org.siri.siri20.VehicleActivityStructure;
+import uk.org.siri.siri20.VehicleMonitoringDeliveryStructure;
+import uk.org.siri.siri20.VehicleRef;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertTrue;
 import static org.entur.kishar.gtfsrt.Helper.createLineRef;
 
 public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest{
-
-    @Before
-    public void init() {
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(), null, Lists.newArrayList("RUT"), null, NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
-    }
 
     @Test
     public void testIncomingAtPercentageVmToVehiclePosition() throws IOException {
@@ -178,6 +190,10 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertFalse(entityList.isEmpty());
         assertEquals(1, entityList.size());
 
+        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertEquals(1, ((GtfsRealtime.FeedMessage) vehiclePositions).getEntityCount());
+        assertTrue(entityList.contains(((GtfsRealtime.FeedMessage) vehiclePositions).getEntity(0)));
+
         GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
 
@@ -191,6 +207,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testVmWithoutFramedVehicleRef() throws IOException {
+
         String lineRefValue = "TST:Line:1234";
         double latitude = 10.56;
         double longitude = 59.63;
@@ -208,8 +225,12 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
-        assertTrue(entityList.isEmpty());
 
+
+        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertEquals(0, ((GtfsRealtime.FeedMessage) vehiclePositions).getEntityCount());
+
+        assertTrue(entityList.isEmpty());
     }
 
     private GtfsRealtime.FeedMessage getFeedMessage(SiriToGtfsRealtimeService rtService) throws InvalidProtocolBufferException {
@@ -222,7 +243,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
 
-        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) SiriToGtfsRealtimeServiceTest.rtService.getVehiclePositions(null, null));
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
         return feedMessage;
     }
@@ -260,6 +281,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         activity.setMonitoredVehicleJourney(mvj);
         activity.setRecordedAtTime(ZonedDateTime.now());
+        activity.setValidUntilTime(ZonedDateTime.now().plusMinutes(10));
         vmDelivery.getVehicleActivities().add(activity);
         serviceDelivery.getVehicleMonitoringDeliveries().add(vmDelivery);
         return siri;
@@ -302,6 +324,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         activity.setMonitoredVehicleJourney(mvj);
         activity.setRecordedAtTime(ZonedDateTime.now());
+        activity.setValidUntilTime(ZonedDateTime.now().plusMinutes(10));
         vmDelivery.getVehicleActivities().add(activity);
         serviceDelivery.getVehicleMonitoringDeliveries().add(vmDelivery);
         return siri;
