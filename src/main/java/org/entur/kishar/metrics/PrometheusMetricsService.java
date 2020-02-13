@@ -37,6 +37,9 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
     private final String DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME = METRICS_PREFIX + "data.parsed.entities";
     private final String DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME = METRICS_PREFIX + "data.filtered.entities";
 
+    private final String MQTT_DATA_RECEIVED_COUNTER_NAME = METRICS_PREFIX + "mqtt.received.total";
+    private final String MQTT_DATA_SENT_COUNTER_NAME = METRICS_PREFIX + "mqtt.sent.total";
+
     public PrometheusMetricsService() {
         super(PrometheusConfig.DEFAULT);
     }
@@ -62,5 +65,19 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
         } else {
             counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment(total);
         }
+    }
+
+    public void registerSentMqttMessage(String datasource) {
+        List<Tag> counterTags = new ArrayList<>();
+        counterTags.add(new ImmutableTag("datasource", datasource));
+
+        counter(MQTT_DATA_SENT_COUNTER_NAME, counterTags).increment();
+    }
+
+    public void registerReceivedMqttMessage(String datasource) {
+        List<Tag> counterTags = new ArrayList<>();
+        counterTags.add(new ImmutableTag("datasource", datasource));
+
+        counter(MQTT_DATA_RECEIVED_COUNTER_NAME, counterTags).increment();
     }
 }

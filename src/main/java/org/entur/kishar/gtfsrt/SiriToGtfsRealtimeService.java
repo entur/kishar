@@ -32,6 +32,8 @@ import uk.org.siri.siri20.VehicleActivityStructure.MonitoredVehicleJourney;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -51,11 +53,11 @@ public class SiriToGtfsRealtimeService {
 
     private AlertFactory alertFactory;
 
-    private Map<TripAndVehicleKey, VehicleData> dataByVehicle = new ConcurrentHashMap<>();
+    Map<TripAndVehicleKey, VehicleData> dataByVehicle = new ConcurrentHashMap<>();
 
-    private Map<TripAndVehicleKey, EstimatedVehicleJourneyData> dataByTimetable = new ConcurrentHashMap<>();
+    Map<TripAndVehicleKey, EstimatedVehicleJourneyData> dataByTimetable = new ConcurrentHashMap<>();
 
-    private Map<String, AlertData> alertDataById = new ConcurrentHashMap<>();
+    Map<String, AlertData> alertDataById = new ConcurrentHashMap<>();
 
     private boolean newData = false;
 
@@ -67,6 +69,9 @@ public class SiriToGtfsRealtimeService {
 
     @Autowired
     private PrometheusMetricsService prometheusMetricsService;
+
+    private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
+    private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:MM:ss");
 
     /**
      * Time, in seconds, after which a vehicle update is considered stale
@@ -84,35 +89,19 @@ public class SiriToGtfsRealtimeService {
     private int closeToNextStopDistance;
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
-                                     @Value("#{'${kishar.datasource.et.whitelist}'.split(',')}") List<String> datasourceETWhitelist,
-                                     @Value("#{'${kishar.datasource.vm.whitelist}'.split(',')}") List<String> datasourceVMWhitelist,
-                                     @Value("#{'${kishar.datasource.sx.whitelist}'.split(',')}") List<String> datasourceSXWhitelist,
+                                     @Value("${kishar.datasource.et.whitelist}") List<String> datasourceETWhitelist,
+                                     @Value("${kishar.datasource.vm.whitelist}") List<String> datasourceVMWhitelist,
+                                     @Value("${kishar.datasource.sx.whitelist}") List<String> datasourceSXWhitelist,
                                      @Value("${kishar.settings.vm.close.to.stop.percentage}") int closeToNextStopPercentage,
                                      @Value("${kishar.settings.vm.close.to.stop.distance}") int closeToNextStopDistance) {
-        if (whitelistContainsAtLeastOneValue(datasourceETWhitelist)) {
-            this.datasourceETWhitelist = datasourceETWhitelist;
-        }
-        if (whitelistContainsAtLeastOneValue(datasourceVMWhitelist)) {
-            this.datasourceVMWhitelist = datasourceVMWhitelist;
-        }
-        if (whitelistContainsAtLeastOneValue(datasourceSXWhitelist)) {
-            this.datasourceSXWhitelist = datasourceSXWhitelist;
-        }
+        this.datasourceETWhitelist = datasourceETWhitelist;
+        this.datasourceVMWhitelist = datasourceVMWhitelist;
+        this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
         this.closeToNextStopPercentage = closeToNextStopPercentage;
         this.closeToNextStopDistance = closeToNextStopDistance;
     }
 
-    private Boolean whitelistContainsAtLeastOneValue(List<String> whitelist) {
-        if (whitelist != null && !whitelist.isEmpty()) {
-            for (String datasource : whitelist) {
-                if (datasource != null && !datasource.isEmpty()) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
         private static final long serialVersionUID = 1L;
@@ -174,7 +163,7 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    public void processDelivery(Siri siri) throws IOException {
+    public void processDelivery(Siri siri) {
         newData = true;
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
 
@@ -302,12 +291,17 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void checkPreconditions(VehicleActivityStructure vehicleActivity) {
+        checkPreconditions(vehicleActivity, true);
+    }
+
+    private void checkPreconditions(VehicleActivityStructure vehicleActivity, boolean countMetric) {
 
         Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
         String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
         Preconditions.checkNotNull(datasource, "datasource");
-        if (prometheusMetricsService != null) {
+
+        if (countMetric && prometheusMetricsService != null) {
             if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource)) {
                 prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, true);
             } else {
@@ -318,6 +312,9 @@ public class SiriToGtfsRealtimeService {
         if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
             Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
+
+        Preconditions.checkNotNull(vehicleActivity.getValidUntilTime(), "ValidUntilTime");
+        Preconditions.checkState(vehicleActivity.getValidUntilTime().isAfter(ZonedDateTime.now()), "Message is no longer valid");
 
         checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
 
@@ -641,7 +638,53 @@ public class SiriToGtfsRealtimeService {
         setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
     }
 
+    public VehiclePosition.Builder convertSingleSiriVmToGtfsRt(Siri siri) {
+
+        processDelivery(siri);
+
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
+                final VehicleMonitoringDeliveryStructure deliveryStructure = serviceDelivery.getVehicleMonitoringDeliveries().get(0);
+                if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
+                    if (deliveryStructure.getVehicleActivities().size() > 0) {
+                        final VehicleActivityStructure activity = deliveryStructure.getVehicleActivities().get(0);
+                        return convertSiriToGtfsRt(activity);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public String resolveDataSource(Siri siri) {
+
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
+                final VehicleMonitoringDeliveryStructure deliveryStructure = serviceDelivery.getVehicleMonitoringDeliveries().get(0);
+                if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
+                    if (deliveryStructure.getVehicleActivities().size() > 0) {
+                        final VehicleActivityStructure activityStructure = deliveryStructure.getVehicleActivities().get(0);
+                        if (activityStructure != null && activityStructure.getMonitoredVehicleJourney() != null) {
+                            return activityStructure.getMonitoredVehicleJourney().getDataSource();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private VehiclePosition.Builder convertSiriToGtfsRt(VehicleActivityStructure activity) {
+
+        try {
+            checkPreconditions(activity, false);
+        } catch (Throwable t) {
+            LOG.info("Ignoring update, preconditions failed: " + t.getMessage());
+            return null;
+        }
+
         if (activity == null) {
             return null;
         }
@@ -652,14 +695,16 @@ public class SiriToGtfsRealtimeService {
         }
 
         LocationStructure location = mvj.getVehicleLocation();
-        VehiclePosition.Builder vp = VehiclePosition.newBuilder();;
 
         if (location != null && location.getLatitude() != null
                 && location.getLongitude() != null) {
 
-            vp = VehiclePosition.newBuilder();
+            VehiclePosition.Builder vp = VehiclePosition.newBuilder();
 
             TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
+            if (td == null) {
+                return null;
+            }
             vp.setTrip(td);
 
             VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
@@ -759,8 +804,11 @@ public class SiriToGtfsRealtimeService {
                     vp.setCongestionLevel(VehiclePosition.CongestionLevel.RUNNING_SMOOTHLY);
                 }
             }
+
+            return vp;
         }
-        return vp;
+
+        return null;
     }
 
     private String getVehicleIdForKey(TripAndVehicleKey key) {
@@ -890,12 +938,25 @@ public class SiriToGtfsRealtimeService {
 
     private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(MonitoredVehicleJourney mvj) {
 
+        if (mvj.getFramedVehicleJourneyRef() == null) {
+            return null;
+        }
+
         TripDescriptor.Builder td = TripDescriptor.newBuilder();
+
         FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
         td.setTripId(fvjRef.getDatedVehicleJourneyRef());
 
         if (mvj.getLineRef() != null) {
             td.setRouteId(mvj.getLineRef().getValue());
+        }
+
+        if (mvj.getOriginAimedDepartureTime() != null) {
+
+            final Date date = new Date(mvj.getOriginAimedDepartureTime().toInstant().toEpochMilli());
+
+            td.setStartDate(gtfsRtDateFormat.format(date));
+            td.setStartTime(gtfsRtTimeFormat.format(date));
         }
 
         return td.build();

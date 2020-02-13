@@ -14,25 +14,34 @@
  */
 package org.entur.kishar.routes;
 
+import com.google.transit.realtime.GtfsRealtime;
+import org.apache.camel.Exchange;
+import org.apache.camel.ExchangePattern;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.builder.xml.Namespaces;
+import org.apache.camel.component.paho.PahoConstants;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
+import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
+import uk.org.siri.siri20.Siri;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.entur.kishar.routes.helpers.MqttHelper.buildTopic;
+
 @Service
 @Configuration
-public class SiriIncomingRoute extends RouteBuilder {
+public class SiriIncomingRoute extends RestRouteBuilder {
 
-    private static final java.lang.String PATH_HEADER = "path";
+    private static final String PATH_HEADER = "path";
+    public static final String DATASOURCE_HEADER_NAME = "datasource";
     private SiriToGtfsRealtimeService siriToGtfsRealtimeService;
 
     @Value("${kishar.anshar.polling.url.et}")
@@ -47,6 +56,12 @@ public class SiriIncomingRoute extends RouteBuilder {
     @Value("${kishar.anshar.polling.period:15s}")
     private String pollingPeriod;
 
+    @Autowired
+    private PrometheusMetricsService metrics;
+
+    @Value("${kishar.mqtt.enabled:false}")
+    private boolean mqttEnabled;
+
     private final Namespaces siriNamespace = new Namespaces("siri", "http://www.siri.org.uk/siri");
 
     public SiriIncomingRoute(@Autowired SiriToGtfsRealtimeService siriToGtfsRealtimeService) {
@@ -58,20 +73,10 @@ public class SiriIncomingRoute extends RouteBuilder {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-        onException(Exception.class)
-                .handled(true)
-                .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
-                .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
-
-        String path_VM = getPath(ansharUrlVm);
-        from("timer://kishar.polling_vm?fixedRate=true&period=" + pollingPeriod)
-                .choice()
-                .when(p -> !isInProgress(path_VM))
-                    .setHeader(PATH_HEADER, constant(path_VM))
-                    .to("direct:polling")
-                .endChoice()
-                .routeId("kishar.polling.vm")
-        ;
+//        onException(Exception.class)
+//                .handled(true)
+//                .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
+//                .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
 
         String path_ET = getPath(ansharUrlEt);
         from("timer://kishar.polling_et?fixedRate=true&period=" + pollingPeriod)
@@ -110,8 +115,48 @@ public class SiriIncomingRoute extends RouteBuilder {
         from("direct:process.helpers.xml")
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
+                .to("direct:forward.siri.vm.to.mqtt")
         ;
 
+
+        rest("/internal")
+                .post("siri-vm").to("direct:forward.siri.vm.to.mqtt")
+        ;
+
+        from("direct:forward.siri.vm.to.mqtt")
+                .choice().when(p -> mqttEnabled)
+                    .process(p ->p.getOut().setBody(p.getIn().getBody(String.class)))
+                    .wireTap("direct:process.single.vm")
+                    .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
+                    .setBody(constant(null))
+                .end()
+        ;
+
+        from("direct:process.single.vm")
+                .to("xslt:xsl/split.xsl").split().tokenizeXML("Siri").streaming()
+                .process( p -> {
+                    final Siri siri = p.getIn().getBody(Siri.class);
+                    p.getOut().setBody(siriToGtfsRealtimeService.convertSingleSiriVmToGtfsRt(siri));
+                    p.getOut().setHeaders(p.getIn().getHeaders());
+                    p.getOut().setHeader(DATASOURCE_HEADER_NAME, siriToGtfsRealtimeService.resolveDataSource(siri));
+                })
+                .bean(metrics, "registerReceivedMqttMessage(${header." + DATASOURCE_HEADER_NAME + "})")
+                .choice().when(body().isNotNull())
+                    .process(p -> {
+                        final GtfsRealtime.VehiclePosition body = p.getIn().getBody(GtfsRealtime.VehiclePosition.class);
+                        String topic = buildTopic(body);
+
+                        if (topic != null) {
+                            p.getOut().setBody(body);
+                            p.getOut().setHeaders(p.getIn().getHeaders());
+                            p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
+                        }
+                    })
+                    .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
+                        .to("direct:send.to.mqtt")
+                    .endChoice()
+                .end()
+        ;
     }
 
     private String getPath(String url) {
