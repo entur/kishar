@@ -17,7 +17,6 @@ data:
     kishar.mqtt.enabled={{ .Values.configmap.mqtt.enabled }}
     kishar.mqtt.host={{ .Values.configmap.mqtt.host }}
     kishar.mqtt.username={{ .Values.configmap.mqtt.username }}
-    kishar.mqtt.password={{ .Values.configmap.mqtt.password }}
 kind: ConfigMap
 metadata:
   name: {{ template "kishar.name" . }}-config

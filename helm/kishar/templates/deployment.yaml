@@ -33,6 +33,11 @@ spec:
                 -Dfile.encoding=UTF-8
             - name: TZ
               value: Europe/Oslo
+            - name: KISHAR_MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: kishar-mqtt-password
           image: {{ .Values.image.identifier }}
           imagePullPolicy: {{ .Values.image.imagePullPolicy }}
           livenessProbe:
