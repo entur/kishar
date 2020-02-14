@@ -71,6 +71,8 @@ public class SiriIncomingRoute extends RestRouteBuilder {
     @Override
     public void configure() {
 
+        super.configure();
+
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
         onException(Exception.class)
