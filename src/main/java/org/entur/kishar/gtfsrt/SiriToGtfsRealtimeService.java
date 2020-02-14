@@ -640,7 +640,9 @@ public class SiriToGtfsRealtimeService {
 
     public VehiclePosition.Builder convertSingleSiriVmToGtfsRt(Siri siri) {
 
-        processDelivery(siri);
+        // TODO: Keeping these updates for polling updaters need to be fixed.
+        //       Current solution will not work with multiple instances.
+        //processDelivery(siri);
 
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
