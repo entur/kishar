@@ -89,7 +89,7 @@ public class MqttProducerRoute extends RouteBuilder {
             from("direct:log.mqtt.traffic")
                     .routeId("log.mqtt")
                     .process(p -> {
-                        if (counter.incrementAndGet() % 10000 == 0) {
+                        if (counter.incrementAndGet() % 1000 == 0) {
                             p.getOut().setHeader("counter", counter.get());
                         }
                     })
