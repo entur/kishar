@@ -73,10 +73,10 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
         JaxbDataFormat dataFormatType = new JaxbDataFormat();
 
-//        onException(Exception.class)
-//                .handled(true)
-//                .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
-//                .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
+        onException(Exception.class)
+                .handled(true)
+                .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
+                .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
 
         String path_ET = getPath(ansharUrlEt);
         from("timer://kishar.polling_et?fixedRate=true&period=" + pollingPeriod)
@@ -115,7 +115,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
         from("direct:process.helpers.xml")
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
-                .to("direct:forward.siri.vm.to.mqtt")
+//                .to("direct:forward.siri.vm.to.mqtt")
         ;
 
 
