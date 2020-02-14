@@ -29,6 +29,6 @@ public class MqttHelperTest {
 
         final String topic = MqttHelper.buildTopic(vp.build());
 
-        assertEquals("/gtfsrt/ENT:Line:1234/ENT:ServiceJourney:1234/1/12:34:56/NSR:StopPlace:123/59;10/11/22/33/", topic);
+        assertEquals("/hfp/gtfsrt/ENT:Line:1234/ENT:ServiceJourney:1234/1/12:34:56/NSR:StopPlace:123/59;10/11/22/33/", topic);
     }
 }
