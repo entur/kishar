@@ -78,6 +78,16 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .log("Fetching data from ${header." + PATH_HEADER + "} failed.")
                 .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
 
+        String path_VM = getPath(ansharUrlVm);
+        from("timer://kishar.polling_vm?fixedRate=true&period=" + pollingPeriod)
+                .choice()
+                .when(p -> !isInProgress(path_VM))
+                .setHeader(PATH_HEADER, constant(path_VM))
+                .to("direct:polling")
+                .endChoice()
+                .routeId("kishar.polling.vm")
+        ;
+
         String path_ET = getPath(ansharUrlEt);
         from("timer://kishar.polling_et?fixedRate=true&period=" + pollingPeriod)
                 .choice()
