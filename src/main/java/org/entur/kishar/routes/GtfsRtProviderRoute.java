@@ -30,7 +30,7 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
     }
 
     @Override
-    public void configure() throws Exception {
+    public void configure() {
 
         super.configure();
 

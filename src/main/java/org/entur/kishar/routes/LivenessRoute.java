@@ -27,7 +27,7 @@ public class LivenessRoute extends RestRouteBuilder {
     PrometheusMetricsService prometheusRegistry;
 
     @Override
-    public void configure() throws Exception {
+    public void configure() {
 
         super.configure();
 
