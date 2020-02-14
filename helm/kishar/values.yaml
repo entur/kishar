@@ -39,7 +39,7 @@ configmap:
       vm: 500
   mqtt:
     enabled: false
-    host: tcp://mqtt:1883
+    host: tcp://vernemq.default:1883
     username: kishar
     password: <password>
 
