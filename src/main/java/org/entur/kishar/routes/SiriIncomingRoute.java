@@ -99,6 +99,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
         ;
 
         from("direct:polling")
+                .routeId("kishar.polling.route")
                 .process(p -> start(p.getIn().getHeader(PATH_HEADER, String.class)))
                 .log("Fetching data from ${header."+PATH_HEADER+"}")
                 .toD("${header." + PATH_HEADER +"}")
@@ -113,6 +114,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
         ;
 
         from("direct:process.helpers.xml")
+                .routeId("kishar.process.xml")
                 .marshal(dataFormatType)
                 .bean(siriToGtfsRealtimeService, "processDelivery(${body})")
 //                .to("direct:forward.siri.vm.to.mqtt")
@@ -120,19 +122,21 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
 
         rest("/internal")
-                .post("siri-vm").to("direct:forward.siri.vm.to.mqtt")
+                .post("siri-vm").to("direct:forward.siri.vm.to.mqtt").id("kishar.internal.vm")
         ;
 
         from("direct:forward.siri.vm.to.mqtt")
+                .routeId("kishar.forward.siri.vm.route")
                 .choice().when(p -> mqttEnabled)
                     .process(p ->p.getOut().setBody(p.getIn().getBody(String.class)))
-                    .wireTap("direct:process.single.vm")
+                    .wireTap("direct:process.vm")
                     .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
                     .setBody(constant(null))
                 .end()
         ;
 
-        from("direct:process.single.vm")
+        from("direct:process.vm")
+                .routeId("kishar.process.vm.xml")
                 .to("xslt:xsl/split.xsl").split().tokenizeXML("Siri").streaming()
                 .process( p -> {
                     final Siri siri = p.getIn().getBody(Siri.class);

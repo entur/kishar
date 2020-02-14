@@ -32,10 +32,10 @@ public class LivenessRoute extends RestRouteBuilder {
         super.configure();
 
         rest("/health/")
-                .get("ready").route().transform().constant("OK").endRest()
-                .get("up").route().transform().constant("OK").endRest()
-                .get("healthy").route().transform().constant("OK").endRest()
-                .get("scrape").to("direct:scrape")
+                .get("ready").route().transform().constant("OK").routeId("kishar.rest.health.ready").endRest()
+                .get("up").route().transform().constant("OK").routeId("kishar.rest.health.up").endRest()
+                .get("healthy").route().transform().constant("OK").routeId("kishar.rest.health.healthy").endRest()
+                .get("scrape").to("direct:scrape").id("kishar.rest.health.scrape")
         ;
 
         // Application is ready to accept traffic
@@ -47,7 +47,7 @@ public class LivenessRoute extends RestRouteBuilder {
                 })
                 .setHeader(Exchange.CONTENT_TYPE, constant("text/plain"))
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
-                .routeId("health.scrape")
+                .routeId("kishar.health.scrape")
         ;
     }
 }

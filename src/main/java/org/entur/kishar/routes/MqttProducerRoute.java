@@ -103,6 +103,7 @@ public class MqttProducerRoute extends RouteBuilder {
             log.info("MQTT is disabled - will NOT post updates");
 
             from("direct:send.to.mqtt")
+                    .routeId("kishar.send.to.mqtt.disabled")
                     .process(p -> {
                         if (counter.incrementAndGet() % 1000 == 0) {
                             p.getOut().setHeader("counter", counter.get());
