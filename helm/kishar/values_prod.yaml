@@ -1,4 +1,5 @@
 env: production
 
 ingress:
-  enabled: false
+  enabled: true
+  productionIp: 35.187.15.14
