@@ -5,7 +5,7 @@ import com.google.transit.realtime.GtfsRealtime;
 public class MqttHelper {
 
     private static final String SLASH = "/";
-    private static final String TOPIC_PREFIX = "/gtfsrt/";
+    private static final String TOPIC_PREFIX = "/hfp/gtfsrt/";
 
     public static String buildTopic(GtfsRealtime.VehiclePosition vp) {
         if (vp != null) {

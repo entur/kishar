@@ -139,12 +139,14 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
         from("direct:forward.siri.vm.to.mqtt")
                 .routeId("kishar.forward.siri.vm.route")
-                .choice().when(p -> mqttEnabled)
-                    .process(p ->p.getOut().setBody(p.getIn().getBody(String.class)))
-                    .wireTap("direct:process.vm")
-                    .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
-                    .setBody(constant(null))
+                .choice()
+                    .when(p -> mqttEnabled)
+                        .convertBodyTo(String.class)
+                        .wireTap("direct:process.vm")
+                    .endChoice()
                 .end()
+                .setBody(constant(null))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
         ;
 
         from("direct:process.vm")
