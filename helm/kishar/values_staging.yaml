@@ -1,5 +1,12 @@
 env: staging
 
+configmap:
+  datasource:
+    whitelist:
+      et:
+      vm:
+      sx:
+
 ingress:
   enabled: true
   stagingIp: 10.19.251.106
