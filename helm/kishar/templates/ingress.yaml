@@ -17,7 +17,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   rules:
+  {{- if eq .Values.env "production"}}
+  - host: realtime-v1-gtfs-rt-{{ .Release.Namespace }}.entur.io
+  {{ else }}
   - host: realtime-v1-gtfs-rt-{{ .Release.Namespace }}.{{ .Release.Namespace }}.entur.io
+  {{- end}}
     http:
       paths:
         - backend:
