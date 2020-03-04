@@ -16,10 +16,12 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
+import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,9 +72,6 @@ public class SiriToGtfsRealtimeService {
     @Autowired
     private PrometheusMetricsService prometheusMetricsService;
 
-    private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
-    private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:MM:ss");
-
     /**
      * Time, in seconds, after which a vehicle update is considered stale
      */
@@ -84,9 +83,7 @@ public class SiriToGtfsRealtimeService {
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
-    private int closeToNextStopPercentage;
-
-    private int closeToNextStopDistance;
+    private GtfsRtMapper gtfsMapper;
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Value("${kishar.datasource.et.whitelist}") List<String> datasourceETWhitelist,
@@ -98,10 +95,8 @@ public class SiriToGtfsRealtimeService {
         this.datasourceVMWhitelist = datasourceVMWhitelist;
         this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
-        this.closeToNextStopPercentage = closeToNextStopPercentage;
-        this.closeToNextStopDistance = closeToNextStopDistance;
+        this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance);
     }
-
 
     private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
         private static final long serialVersionUID = 1L;
@@ -125,6 +120,7 @@ public class SiriToGtfsRealtimeService {
         }
         return encodeFeedMessage(feedMessage, contentType);
     }
+
     public Object getVehiclePositions(String contentType, String datasource) {
         if (prometheusMetricsService != null) {
             prometheusMetricsService.registerIncomingRequest("SIRI_VM", 1);
@@ -138,6 +134,7 @@ public class SiriToGtfsRealtimeService {
         }
         return encodeFeedMessage(feedMessage, contentType);
     }
+
     public Object getAlerts(String contentType, String datasource) {
         if (prometheusMetricsService != null) {
             prometheusMetricsService.registerIncomingRequest("SIRI_SX", 1);
@@ -251,7 +248,6 @@ public class SiriToGtfsRealtimeService {
         }
     }
 
-
     /****
      * Private Methods
      ****/
@@ -271,7 +267,6 @@ public class SiriToGtfsRealtimeService {
                 vehicleActivity, producer);
         dataByVehicle.put(key, data);
     }
-
 
     private void process(ServiceDelivery delivery,
                          EstimatedVehicleJourney estimatedVehicleJourney) {
@@ -447,18 +442,7 @@ public class SiriToGtfsRealtimeService {
                 feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
-            TripUpdate.Builder tripUpdate = TripUpdate.newBuilder();
-
-            TripDescriptor td = getEstimatedVehicleJourneyAsTripDescriptor(vehicleJourney);
-            tripUpdate.setTrip(td);
-
-            VehicleDescriptor vd = getEstimatedVehicleJourneyAsVehicleDescriptor(vehicleJourney);
-            if (vd != null) {
-                tripUpdate.setVehicle(vd);
-            }
-
-            applyStopSpecificDelayToTripUpdateIfApplicable(vehicleJourney, tripUpdate);
-
+            TripUpdate.Builder tripUpdate = gtfsMapper.mapTripUpdateFromVehicleJourney(vehicleJourney);
 
             FeedEntity.Builder entity = FeedEntity.newBuilder();
             entity.setId(getTripIdForEstimatedVehicleJourney(vehicleJourney));
@@ -480,102 +464,6 @@ public class SiriToGtfsRealtimeService {
         return feedMessageMap;
     }
 
-    private void applyStopSpecificDelayToTripUpdateIfApplicable(
-            EstimatedVehicleJourney mvj,
-            TripUpdate.Builder tripUpdate) {
-        EstimatedVehicleJourney.EstimatedCalls estimatedCalls = mvj.getEstimatedCalls();
-        EstimatedVehicleJourney.RecordedCalls recordedCalls = mvj.getRecordedCalls();
-
-        int stopCounter = 0;
-        if (recordedCalls != null && recordedCalls.getRecordedCalls() != null) {
-            for (RecordedCall recordedCall : recordedCalls.getRecordedCalls()) {
-                StopPointRef stopPointRef = recordedCall.getStopPointRef();
-                if (stopPointRef == null || stopPointRef.getValue() == null) {
-                    return;
-                }
-                Integer arrivalDelayInSeconds = null;
-                Integer departureDelayInSeconds = null;
-
-                if (recordedCall.getAimedArrivalTime() != null) {
-                    arrivalDelayInSeconds = calculateDiff(recordedCall.getAimedArrivalTime(), recordedCall.getActualArrivalTime());
-                }
-
-                if (recordedCall.getAimedDepartureTime() != null) {
-                    departureDelayInSeconds = calculateDiff(recordedCall.getAimedDepartureTime(), recordedCall.getActualDepartureTime());
-                }
-
-                int stopSequence;
-                if (recordedCall.getOrder() != null) {
-                    stopSequence = recordedCall.getOrder().intValue() - 1;
-                } else {
-                    stopSequence = stopCounter;
-                }
-
-                addStopTimeUpdate(stopPointRef, arrivalDelayInSeconds, departureDelayInSeconds, stopSequence, tripUpdate);
-
-                stopCounter++;
-            }
-        }
-        if (estimatedCalls != null && estimatedCalls.getEstimatedCalls() != null) {
-            for (EstimatedCall estimatedCall : estimatedCalls.getEstimatedCalls()) {
-                StopPointRef stopPointRef = estimatedCall.getStopPointRef();
-                if (stopPointRef == null || stopPointRef.getValue() == null) {
-                    return;
-                }
-
-                Integer arrivalDelayInSeconds = null;
-                Integer departureDelayInSeconds = null;
-
-                if (estimatedCall.getAimedArrivalTime() != null){
-                    arrivalDelayInSeconds = calculateDiff(estimatedCall.getAimedArrivalTime(), estimatedCall.getExpectedArrivalTime());
-                }
-                if (estimatedCall.getAimedDepartureTime() != null) {
-                    departureDelayInSeconds = calculateDiff(estimatedCall.getAimedDepartureTime(), estimatedCall.getExpectedDepartureTime());
-                }
-
-
-                int stopSequence;
-                if (estimatedCall.getOrder() != null) {
-                    stopSequence = estimatedCall.getOrder().intValue() - 1;
-                } else {
-                    stopSequence = stopCounter;
-                }
-
-                addStopTimeUpdate(stopPointRef, arrivalDelayInSeconds, departureDelayInSeconds, stopSequence, tripUpdate);
-
-                stopCounter++;
-            }
-        }
-    }
-
-    private void addStopTimeUpdate(StopPointRef stopPointRef, Integer arrivalDelayInSeconds, Integer departureDelayInSeconds, int stopSequence, TripUpdate.Builder tripUpdate) {
-
-
-        StopTimeUpdate.Builder stopTimeUpdate = StopTimeUpdate.newBuilder();
-
-        if (arrivalDelayInSeconds != null) {
-            StopTimeEvent.Builder arrivalStopTimeEvent = StopTimeEvent.newBuilder();
-            arrivalStopTimeEvent.setDelay(arrivalDelayInSeconds);
-            stopTimeUpdate.setArrival(arrivalStopTimeEvent);
-        }
-        if (departureDelayInSeconds != null) {
-            StopTimeEvent.Builder departureStopTimeEvent = StopTimeEvent.newBuilder();
-            departureStopTimeEvent.setDelay(departureDelayInSeconds);
-            stopTimeUpdate.setDeparture(departureStopTimeEvent);
-        }
-
-        stopTimeUpdate.setStopSequence(stopSequence);
-        stopTimeUpdate.setStopId(stopPointRef.getValue());
-
-        tripUpdate.addStopTimeUpdate(stopTimeUpdate);
-    }
-
-    private Integer calculateDiff(ZonedDateTime aimed, ZonedDateTime expected) {
-        if (aimed != null && expected != null) {
-            return (int)(expected.toEpochSecond() - aimed.toEpochSecond());
-        }
-        return null;
-    }
     private String getTripIdForEstimatedVehicleJourney(EstimatedVehicleJourney mvj) {
         StringBuilder b = new StringBuilder();
         FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
@@ -617,7 +505,14 @@ public class SiriToGtfsRealtimeService {
                 feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
-            VehiclePosition.Builder vp = convertSiriToGtfsRt(activity);
+            VehiclePosition.Builder vp = null;
+            try {
+                checkPreconditions(activity, false);
+
+                vp = gtfsMapper.convertSiriToGtfsRt(activity);
+            } catch (Throwable t) {
+                LOG.info("Ignoring update, preconditions failed: " + t.getMessage());
+            }
 
             if (vp != null) {
 
@@ -651,7 +546,7 @@ public class SiriToGtfsRealtimeService {
                 if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
                     if (deliveryStructure.getVehicleActivities().size() > 0) {
                         final VehicleActivityStructure activity = deliveryStructure.getVehicleActivities().get(0);
-                        return convertSiriToGtfsRt(activity);
+                        return gtfsMapper.convertSiriToGtfsRt(activity);
                     }
                 }
             }
@@ -675,141 +570,6 @@ public class SiriToGtfsRealtimeService {
                 }
             }
         }
-        return null;
-    }
-
-    private VehiclePosition.Builder convertSiriToGtfsRt(VehicleActivityStructure activity) {
-
-        try {
-            checkPreconditions(activity, false);
-        } catch (Throwable t) {
-            LOG.info("Ignoring update, preconditions failed: " + t.getMessage());
-            return null;
-        }
-
-        if (activity == null) {
-            return null;
-        }
-
-        MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
-        if (mvj == null) {
-            return null;
-        }
-
-        LocationStructure location = mvj.getVehicleLocation();
-
-        if (location != null && location.getLatitude() != null
-                && location.getLongitude() != null) {
-
-            VehiclePosition.Builder vp = VehiclePosition.newBuilder();
-
-            TripDescriptor td = getMonitoredVehicleJourneyAsTripDescriptor(mvj);
-            if (td == null) {
-                return null;
-            }
-            vp.setTrip(td);
-
-            VehicleDescriptor vd = getMonitoredVehicleJourneyAsVehicleDescriptor(mvj);
-            if (vd != null) {
-                vp.setVehicle(vd);
-            }
-
-            Instant time = activity.getRecordedAtTime().toInstant();
-            if (time != null) {
-                vp.setTimestamp(time.getEpochSecond());
-            }
-
-            Position.Builder position = Position.newBuilder();
-            position.setLatitude(location.getLatitude().floatValue());
-            position.setLongitude(location.getLongitude().floatValue());
-
-            if ( mvj.getBearing() != null) {
-                position.setBearing(mvj.getBearing().floatValue());
-            }
-
-            // Speed - not included in profile
-            if ( mvj.getVelocity() != null) {
-                position.setSpeed(mvj.getVelocity().floatValue());
-            }
-
-            //Distance traveled since last stop
-            boolean isCloseToNextStop = false;
-            if (activity.getProgressBetweenStops() != null) {
-                final ProgressBetweenStopsStructure progressBetweenStops = activity.getProgressBetweenStops();
-                if (progressBetweenStops.getPercentage() != null) {
-
-                    isCloseToNextStop = progressBetweenStops.getPercentage().intValue() > closeToNextStopPercentage;
-
-                    final BigDecimal linkDistance = progressBetweenStops.getLinkDistance();
-
-                    if (linkDistance != null) {
-                        final BigDecimal distanceTravelled = linkDistance.multiply(progressBetweenStops.getPercentage().divide(BigDecimal.valueOf(100)));
-                        position.setOdometer(distanceTravelled.doubleValue());
-
-                        if (linkDistance.doubleValue() - distanceTravelled.doubleValue() < closeToNextStopDistance) {
-                            isCloseToNextStop = true;
-                        }
-                    }
-                }
-            }
-
-
-            // VehicleStatus
-            if (mvj.getMonitoredCall() != null) {
-                final MonitoredCallStructure monitoredCall = mvj.getMonitoredCall();
-                if (monitoredCall.isVehicleAtStop() != null && monitoredCall.isVehicleAtStop()) {
-                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.STOPPED_AT);
-                } else if (isCloseToNextStop) {
-                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.INCOMING_AT);
-                } else {
-                    vp.setCurrentStatus(VehiclePosition.VehicleStopStatus.IN_TRANSIT_TO);
-                }
-
-                final LocationStructure locationAtStop = monitoredCall.getVehicleLocationAtStop();
-                if (locationAtStop != null && locationAtStop.getLatitude() != null && locationAtStop.getLongitude() != null) {
-                    position.setLatitude(locationAtStop.getLatitude().floatValue());
-                    position.setLongitude(locationAtStop.getLongitude().floatValue());
-                }
-
-                if (monitoredCall.getStopPointRef() != null) {
-                    vp.setStopId(monitoredCall.getStopPointRef().getValue());
-                }
-
-                if (monitoredCall.getOrder() != null) {
-                    //TODO: Correct to assume that order == stop_sequence?
-                    vp.setCurrentStopSequence(monitoredCall.getOrder().intValue());
-                }
-            }
-
-            vp.setPosition(position);
-
-            //Occupancy - GTFS-RT experimental feature
-            if (mvj.getOccupancy() != null) {
-                switch (mvj.getOccupancy()) {
-                    case FULL:
-                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.FULL);
-                        break;
-                    case STANDING_AVAILABLE:
-                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY);
-                        break;
-                    case SEATS_AVAILABLE:
-                        vp.setOccupancyStatus(VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE);
-                        break;
-                }
-            }
-
-            //Congestion
-            if (mvj.isInCongestion() != null) {
-                if (mvj.isInCongestion()) {
-                    vp.setCongestionLevel(VehiclePosition.CongestionLevel.CONGESTION);
-                } else {
-                    vp.setCongestionLevel(VehiclePosition.CongestionLevel.RUNNING_SMOOTHLY);
-                }
-            }
-
-            return vp;
-        }
-
         return null;
     }
 
@@ -909,6 +669,7 @@ public class SiriToGtfsRealtimeService {
      *         MonitoredVehicleJourney.MonitoringError contains a string matching
      *         a value in {@link #_monitoringErrorsForVehiclePositions}.
      */
+
     private boolean hasVehiclePositionMonitoringError(MonitoredVehicleJourney mvj) {
         if (mvj.isMonitored() != null && mvj.isMonitored()) {
             return false;
@@ -924,68 +685,4 @@ public class SiriToGtfsRealtimeService {
         }
         return false;
     }
-
-    private TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(EstimatedVehicleJourney estimatedVehicleJourney) {
-
-        TripDescriptor.Builder td = TripDescriptor.newBuilder();
-        FramedVehicleJourneyRefStructure fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
-        td.setTripId(fvjRef.getDatedVehicleJourneyRef());
-
-        if (estimatedVehicleJourney.getLineRef() != null) {
-            td.setRouteId(estimatedVehicleJourney.getLineRef().getValue());
-        }
-
-        return td.build();
-    }
-
-    private TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(MonitoredVehicleJourney mvj) {
-
-        if (mvj.getFramedVehicleJourneyRef() == null) {
-            return null;
-        }
-
-        TripDescriptor.Builder td = TripDescriptor.newBuilder();
-
-        FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
-        td.setTripId(fvjRef.getDatedVehicleJourneyRef());
-
-        if (mvj.getLineRef() != null) {
-            td.setRouteId(mvj.getLineRef().getValue());
-        }
-
-        if (mvj.getOriginAimedDepartureTime() != null) {
-
-            final Date date = new Date(mvj.getOriginAimedDepartureTime().toInstant().toEpochMilli());
-
-            td.setStartDate(gtfsRtDateFormat.format(date));
-            td.setStartTime(gtfsRtTimeFormat.format(date));
-        }
-
-        return td.build();
-    }
-
-    private VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(MonitoredVehicleJourney mvj) {
-        VehicleRef vehicleRef = mvj.getVehicleRef();
-        if (vehicleRef == null || vehicleRef.getValue() == null) {
-            return null;
-        }
-
-        VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
-        vd.setId(vehicleRef.getValue());
-        return vd.build();
-    }
-
-    private VehicleDescriptor getEstimatedVehicleJourneyAsVehicleDescriptor(
-            EstimatedVehicleJourney estimatedVehicleJourney) {
-        VehicleRef vehicleRef = estimatedVehicleJourney.getVehicleRef();
-
-        if (vehicleRef == null || vehicleRef.getValue() == null) {
-            return null;
-        }
-
-        VehicleDescriptor.Builder vd = VehicleDescriptor.newBuilder();
-        vd.setId(vehicleRef.getValue());
-        return vd.build();
-    }
-
 }
