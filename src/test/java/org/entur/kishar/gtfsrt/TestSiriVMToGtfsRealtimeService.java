@@ -233,6 +233,34 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertTrue(entityList.isEmpty());
     }
 
+    @Test
+    public void testMappingOfSiriVm() {
+
+        String stopPointRefValue = "TST:Quay:1234";
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "RUT";
+
+        float bearing = 123.45F;
+        long velocity = 56;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.FULL;
+        int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
+        int distance = 10000;
+
+        boolean isVehicleAtStop = false;
+
+        Siri siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+                datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
+                velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
+
+        List<GtfsRealtime.VehiclePosition.Builder> result = rtService.convertSiriVmToGtfsRt(siri);
+
+        assertFalse(result.isEmpty());
+    }
+
     private GtfsRealtime.FeedMessage getFeedMessage(SiriToGtfsRealtimeService rtService) throws InvalidProtocolBufferException {
         Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
         assertNotNull(vehiclePositions);

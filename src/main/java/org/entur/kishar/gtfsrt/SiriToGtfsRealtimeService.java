@@ -14,6 +14,7 @@
  */
 package org.entur.kishar.gtfsrt;
 
+import com.google.api.client.util.Lists;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
@@ -82,6 +83,13 @@ public class SiriToGtfsRealtimeService {
     private Map<String, FeedMessage> vehiclePositionsByDatasource = Maps.newHashMap();
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
+
+    private List<VehiclePosition.Builder> vehiclePositionBuilders = Lists.newArrayList();
+    private Map<String, List<VehiclePosition.Builder>> vehiclePositionBuildersByDatasource = Maps.newHashMap();
+    private List<TripUpdate.Builder> tripUpdatesBuilders = Lists.newArrayList();
+    private Map<String, List<TripUpdate.Builder>> tripUpdatesBuildersByDatasource = Maps.newHashMap();
+    private List<Alert.Builder> alertsBuilders = Lists.newArrayList();
+    private Map<String, List<Alert.Builder>> alertsBuildersByDatasource = Maps.newHashMap();
 
     private GtfsRtMapper gtfsMapper;
 
@@ -533,46 +541,6 @@ public class SiriToGtfsRealtimeService {
         setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
     }
 
-    public VehiclePosition.Builder convertSingleSiriVmToGtfsRt(Siri siri) {
-
-        // TODO: Keeping these updates for polling updaters need to be fixed.
-        //       Current solution will not work with multiple instances.
-        //processDelivery(siri);
-
-        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
-        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
-            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
-                final VehicleMonitoringDeliveryStructure deliveryStructure = serviceDelivery.getVehicleMonitoringDeliveries().get(0);
-                if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
-                    if (deliveryStructure.getVehicleActivities().size() > 0) {
-                        final VehicleActivityStructure activity = deliveryStructure.getVehicleActivities().get(0);
-                        return gtfsMapper.convertSiriToGtfsRt(activity);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    public String resolveDataSource(Siri siri) {
-
-        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
-        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
-            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
-                final VehicleMonitoringDeliveryStructure deliveryStructure = serviceDelivery.getVehicleMonitoringDeliveries().get(0);
-                if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
-                    if (deliveryStructure.getVehicleActivities().size() > 0) {
-                        final VehicleActivityStructure activityStructure = deliveryStructure.getVehicleActivities().get(0);
-                        if (activityStructure != null && activityStructure.getMonitoredVehicleJourney() != null) {
-                            return activityStructure.getMonitoredVehicleJourney().getDataSource();
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
     private String getVehicleIdForKey(TripAndVehicleKey key) {
         if (key.getVehicleId() != null) {
             return key.getVehicleId();
@@ -684,5 +652,163 @@ public class SiriToGtfsRealtimeService {
             }
         }
         return false;
+    }
+
+    public String getDatasourceFromSiriVm(Siri siri) {
+
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
+                for (VehicleMonitoringDeliveryStructure deliveryStructure : serviceDelivery.getVehicleMonitoringDeliveries()) {
+                    if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
+                        if (deliveryStructure.getVehicleActivities().size() > 0) {
+                            for (VehicleActivityStructure activity : deliveryStructure.getVehicleActivities()) {
+                                if (activity.getMonitoredVehicleJourney() != null && activity.getMonitoredVehicleJourney().getDataSource() != null) {
+                                    return activity.getMonitoredVehicleJourney().getDataSource();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<VehiclePosition.Builder> convertSiriVmToGtfsRt(Siri siri) {
+
+        List<VehiclePosition.Builder> result = Lists.newArrayList();
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
+                for (VehicleMonitoringDeliveryStructure deliveryStructure : serviceDelivery.getVehicleMonitoringDeliveries()) {
+                    if (deliveryStructure != null && deliveryStructure.getVehicleActivities() != null) {
+                        if (deliveryStructure.getVehicleActivities().size() > 0) {
+                            for (VehicleActivityStructure activity : deliveryStructure.getVehicleActivities()) {
+                                result.add(gtfsMapper.convertSiriToGtfsRt(activity));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public void registerGtfsRtVehiclePosition(VehiclePosition.Builder vehiclePositions, String datasource) {
+        vehiclePositionBuilders.add(vehiclePositions);
+        if (vehiclePositionBuildersByDatasource.containsKey(datasource)) {
+            vehiclePositionBuildersByDatasource.get(datasource).add(vehiclePositions);
+        } else {
+            List<VehiclePosition.Builder> list = Lists.newArrayList();
+            list.add(vehiclePositions);
+            vehiclePositionBuildersByDatasource.put(datasource, list);
+        }
+    }
+
+    public String getDatasourceFromSiriEt(Siri siri) {
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getEstimatedTimetableDeliveries().size() > 0) {
+                for (EstimatedTimetableDeliveryStructure estimatedTimetableDeliveryStructure : serviceDelivery.getEstimatedTimetableDeliveries()) {
+                    if (estimatedTimetableDeliveryStructure != null && estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrames().size() > 0) {
+                        for (EstimatedVersionFrameStructure estimatedVersionFrameStructure : estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrames()) {
+                            if (estimatedVersionFrameStructure != null && estimatedVersionFrameStructure.getEstimatedVehicleJourneies().size() > 0) {
+                                for (EstimatedVehicleJourney estimatedVehicleJourney : estimatedVersionFrameStructure.getEstimatedVehicleJourneies()) {
+                                    if (estimatedVehicleJourney != null && estimatedVehicleJourney.getDataSource() != null) {
+                                        return estimatedVehicleJourney.getDataSource();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<TripUpdate.Builder> convertSiriEtToGtfsRt(Siri siri) {
+
+        List<TripUpdate.Builder> result = Lists.newArrayList();
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getEstimatedTimetableDeliveries().size() > 0) {
+                for (EstimatedTimetableDeliveryStructure estimatedTimetableDeliveryStructure : serviceDelivery.getEstimatedTimetableDeliveries()) {
+                    if (estimatedTimetableDeliveryStructure != null && estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrames().size() > 0) {
+                        for (EstimatedVersionFrameStructure estimatedVersionFrameStructure : estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrames()) {
+                            if (estimatedVersionFrameStructure != null && estimatedVersionFrameStructure.getEstimatedVehicleJourneies().size() > 0) {
+                                for (EstimatedVehicleJourney estimatedVehicleJourney : estimatedVersionFrameStructure.getEstimatedVehicleJourneies()) {
+                                    if (estimatedVehicleJourney != null) {
+                                        result.add(gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public void registerGtfsRtTripUpdate(TripUpdate.Builder tripUpdate, String datasource) {
+        tripUpdatesBuilders.add(tripUpdate);
+        if (tripUpdatesBuildersByDatasource.containsKey(datasource)) {
+            tripUpdatesBuildersByDatasource.get(datasource).add(tripUpdate);
+        } else {
+            List<TripUpdate.Builder> list = Lists.newArrayList();
+            list.add(tripUpdate);
+            tripUpdatesBuildersByDatasource.put(datasource, list);
+        }
+    }
+
+    public String getDatasourceFromSiriSx(Siri siri) {
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getSituationExchangeDeliveries().size() > 0) {
+                for (SituationExchangeDeliveryStructure situationExchangeDeliveryStructure : serviceDelivery.getSituationExchangeDeliveries()) {
+                    if (situationExchangeDeliveryStructure != null && situationExchangeDeliveryStructure.getSituations() != null && situationExchangeDeliveryStructure.getSituations().getPtSituationElements().size() > 0) {
+                        for (PtSituationElement ptSituationElement : situationExchangeDeliveryStructure.getSituations().getPtSituationElements()) {
+                            if (ptSituationElement != null && ptSituationElement.getParticipantRef() != null) {
+                                return ptSituationElement.getParticipantRef().getValue();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<Alert.Builder> convertSiriSxToGtfsRt(Siri siri) {
+
+        List<Alert.Builder> result = Lists.newArrayList();
+        ServiceDelivery serviceDelivery = siri.getServiceDelivery();
+        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
+            if (serviceDelivery.getSituationExchangeDeliveries().size() > 0) {
+                for (SituationExchangeDeliveryStructure situationExchangeDeliveryStructure : serviceDelivery.getSituationExchangeDeliveries()) {
+                    if (situationExchangeDeliveryStructure != null && situationExchangeDeliveryStructure.getSituations() != null && situationExchangeDeliveryStructure.getSituations().getPtSituationElements().size() > 0) {
+                        for (PtSituationElement ptSituationElement : situationExchangeDeliveryStructure.getSituations().getPtSituationElements()) {
+                            if (ptSituationElement != null) {
+                                result.add(alertFactory.createAlertFromSituation(ptSituationElement));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public void registerGtfsRtAlert(Alert.Builder alert, String datasource) {
+        alertsBuilders.add(alert);
+        if (alertsBuildersByDatasource.containsKey(datasource)) {
+            alertsBuildersByDatasource.get(datasource).add(alert);
+        } else {
+            List<Alert.Builder> list = Lists.newArrayList();
+            list.add(alert);
+            alertsBuildersByDatasource.put(datasource, list);
+        }
     }
 }

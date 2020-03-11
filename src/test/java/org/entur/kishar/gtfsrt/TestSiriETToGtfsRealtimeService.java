@@ -283,6 +283,20 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     }
 
+    @Test
+    public void testMappingOfSiriEt() {
+        String lineRefValue = "TST:Line:1234";
+        int delayPerStop = 30;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "RUT";
+
+        Siri et = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, delayPerStop), datedVehicleJourneyRef, datasource);
+
+        List<GtfsRealtime.TripUpdate.Builder> result = rtService.convertSiriEtToGtfsRt(et);
+
+        assertFalse(result.isEmpty());
+    }
+
     private Siri createSiriEtDelivery(String lineRefValue, List<? extends EstimatedCall> calls, String datedVehicleJourneyRef, String datasource) {
         Siri siri = new Siri();
         ServiceDelivery serviceDelivery = new ServiceDelivery();

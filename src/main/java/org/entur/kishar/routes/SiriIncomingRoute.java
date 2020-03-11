@@ -16,8 +16,6 @@ package org.entur.kishar.routes;
 
 import com.google.transit.realtime.GtfsRealtime;
 import org.apache.camel.Exchange;
-import org.apache.camel.ExchangePattern;
-import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.builder.xml.Namespaces;
 import org.apache.camel.component.paho.PahoConstants;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
@@ -42,6 +40,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
     private static final String PATH_HEADER = "path";
     public static final String DATASOURCE_HEADER_NAME = "datasource";
+    public static final String LIST_COUNT_HEADER_NAME = "list_size";
     private SiriToGtfsRealtimeService siriToGtfsRealtimeService;
 
     @Value("${kishar.anshar.polling.url.et}")
@@ -151,28 +150,8 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
         from("direct:process.vm")
                 .routeId("kishar.process.vm.xml")
-                .to("xslt:xsl/split.xsl").split().tokenizeXML("Siri").streaming()
-                .process( p -> {
-                    final Siri siri = p.getIn().getBody(Siri.class);
-                    p.getOut().setBody(siriToGtfsRealtimeService.convertSingleSiriVmToGtfsRt(siri));
-                    p.getOut().setHeaders(p.getIn().getHeaders());
-                    p.getOut().setHeader(DATASOURCE_HEADER_NAME, siriToGtfsRealtimeService.resolveDataSource(siri));
-                })
-                .bean(metrics, "registerReceivedMqttMessage(${header." + DATASOURCE_HEADER_NAME + "})")
                 .choice().when(body().isNotNull())
-                    .process(p -> {
-                        final GtfsRealtime.VehiclePosition body = p.getIn().getBody(GtfsRealtime.VehiclePosition.class);
-                        String topic = buildTopic(body);
-
-                        if (topic != null) {
-                            p.getOut().setBody(body);
-                            p.getOut().setHeaders(p.getIn().getHeaders());
-                            p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
-                        }
-                    })
-                    .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
-                        .to("direct:send.to.mqtt")
-                    .endChoice()
+                    .to("direct:send.to.pubsub.topic.siri.vm")
                 .end()
         ;
     }
