@@ -256,7 +256,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        List<GtfsRealtime.VehiclePosition.Builder> result = rtService.convertSiriVmToGtfsRt(siri);
+        List<GtfsRealtime.FeedEntity.Builder> result = rtService.convertSiriVmToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }

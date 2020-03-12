@@ -292,7 +292,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         Siri et = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, delayPerStop), datedVehicleJourneyRef, datasource);
 
-        List<GtfsRealtime.TripUpdate.Builder> result = rtService.convertSiriEtToGtfsRt(et);
+        List<GtfsRealtime.FeedEntity.Builder> result = rtService.convertSiriEtToGtfsRt(et);
 
         assertFalse(result.isEmpty());
     }

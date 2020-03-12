@@ -82,7 +82,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         serviceDelivery.getSituationExchangeDeliveries().add(sxDelivery);
         siri.setServiceDelivery(serviceDelivery);
 
-        List<GtfsRealtime.Alert.Builder> result = rtService.convertSiriSxToGtfsRt(siri);
+        List<GtfsRealtime.FeedEntity.Builder> result = rtService.convertSiriSxToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }

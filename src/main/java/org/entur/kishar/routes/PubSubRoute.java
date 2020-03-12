@@ -66,7 +66,7 @@ public class PubSubRoute extends RouteBuilder {
                     .to(siriEtTopic)
             ;
 
-            from(siriEtTopic + "?subId")
+            from(siriEtTopic)
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .loop(header(LIST_COUNT_HEADER_NAME)).copy()
@@ -130,7 +130,7 @@ public class PubSubRoute extends RouteBuilder {
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.TripUpdate.Builder> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
+                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
                         p.getOut().setBody(body);
                         p.getOut().setHeaders(p.getIn().getHeaders());
                         p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
@@ -140,7 +140,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.trip.updates")
                     .process( p -> {
-                        final GtfsRealtime.TripUpdate.Builder tripUpdate = p.getIn().getBody(GtfsRealtime.TripUpdate.Builder.class);
+                        final GtfsRealtime.FeedEntity.Builder tripUpdate = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
                         final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
                         siriToGtfsRealtimeService.registerGtfsRtTripUpdate(tripUpdate, datasource);
                     })
@@ -149,7 +149,7 @@ public class PubSubRoute extends RouteBuilder {
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.VehiclePosition.Builder> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
+                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
                         p.getOut().setBody(body);
                         p.getOut().setHeaders(p.getIn().getHeaders());
                         p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
@@ -159,7 +159,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final GtfsRealtime.VehiclePosition.Builder vehiclePosition = p.getIn().getBody(GtfsRealtime.VehiclePosition.Builder.class);
+                        final GtfsRealtime.FeedEntity.Builder vehiclePosition = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
                         final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition, datasource);
                     })
@@ -168,7 +168,7 @@ public class PubSubRoute extends RouteBuilder {
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.Alert.Builder> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
+                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
                         p.getOut().setBody(body);
                         p.getOut().setHeaders(p.getIn().getHeaders());
                         p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
@@ -178,7 +178,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.alerts")
                     .process( p -> {
-                        final GtfsRealtime.Alert.Builder alert = p.getIn().getBody(GtfsRealtime.Alert.Builder.class);
+                        final GtfsRealtime.FeedEntity.Builder alert = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
                         final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
                         siriToGtfsRealtimeService.registerGtfsRtAlert(alert, datasource);
                     })

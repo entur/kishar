@@ -14,10 +14,8 @@
  */
 package org.entur.kishar.routes;
 
-import com.google.transit.realtime.GtfsRealtime;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.xml.Namespaces;
-import org.apache.camel.component.paho.PahoConstants;
 import org.apache.camel.model.dataformat.JaxbDataFormat;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -25,14 +23,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
-import uk.org.siri.siri20.Siri;
 
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.entur.kishar.routes.helpers.MqttHelper.buildTopic;
 
 @Service
 @Configuration
@@ -58,8 +53,8 @@ public class SiriIncomingRoute extends RestRouteBuilder {
     @Autowired
     private PrometheusMetricsService metrics;
 
-    @Value("${kishar.mqtt.enabled:false}")
-    private boolean mqttEnabled;
+    @Value("${kishar.pubsub.enabled:false}")
+    private boolean pubsubEnabled;
 
     private final Namespaces siriNamespace = new Namespaces("siri", "http://www.siri.org.uk/siri");
 
@@ -133,13 +128,15 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
 
         rest("/internal")
-                .post("siri-vm").to("direct:forward.siri.vm.to.mqtt").id("kishar.internal.vm")
+                .post("siri-et").to("direct:forward.siri.et.to.pubsub").id("kishar.internal.et")
+                .post("siri-vm").to("direct:forward.siri.vm.to.pubsub").id("kishar.internal.vm")
+                .post("siri-sx").to("direct:forward.siri.sx.to.pubsub").id("kishar.internal.sx")
         ;
 
-        from("direct:forward.siri.vm.to.mqtt")
+        from("direct:forward.siri.vm.to.pubsub")
                 .routeId("kishar.forward.siri.vm.route")
                 .choice()
-                    .when(p -> mqttEnabled)
+                    .when(p -> pubsubEnabled)
                         .convertBodyTo(String.class)
                         .wireTap("direct:process.vm")
                     .endChoice()
@@ -152,6 +149,44 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .routeId("kishar.process.vm.xml")
                 .choice().when(body().isNotNull())
                     .to("direct:send.to.pubsub.topic.siri.vm")
+                .end()
+        ;
+
+        from("direct:forward.siri.et.to.pubsub")
+                .routeId("kishar.forward.siri.et.route")
+                .choice()
+                .when(p -> pubsubEnabled)
+                .convertBodyTo(String.class)
+                .wireTap("direct:process.et")
+                .endChoice()
+                .end()
+                .setBody(constant(null))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
+        ;
+
+        from("direct:process.et")
+                .routeId("kishar.process.et.xml")
+                .choice().when(body().isNotNull())
+                .to("direct:send.to.pubsub.topic.siri.et")
+                .end()
+        ;
+
+        from("direct:forward.siri.sx.to.pubsub")
+                .routeId("kishar.forward.siri.sx.route")
+                .choice()
+                .when(p -> pubsubEnabled)
+                .convertBodyTo(String.class)
+                .wireTap("direct:process.sx")
+                .endChoice()
+                .end()
+                .setBody(constant(null))
+                .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
+        ;
+
+        from("direct:process.sx")
+                .routeId("kishar.process.sx.xml")
+                .choice().when(body().isNotNull())
+                .to("direct:send.to.pubsub.topic.siri.sx")
                 .end()
         ;
     }
