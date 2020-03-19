@@ -60,7 +60,7 @@ public class PubSubRoute extends RouteBuilder {
 
 
         if (pubsubEnabled) {
-
+            /*
             from("direct:send.to.pubsub.topic.siri.et")
                     .wireTap("direct:log.incoming.siri.et")
                     .to(siriEtTopic)
@@ -75,13 +75,11 @@ public class PubSubRoute extends RouteBuilder {
                             exchange.getOut().setBody(tripUpdates.get(Integer.parseInt(property(LOOP_INDEX).toString())));
                             exchange.getOut().setHeaders(exchange.getIn().getHeaders());
                         })
-                        .to(gtfsRtTripUpdateTopic)
+                        .to("direct:register.gtfs.rt.trip.updates")
                     .end()
             ;
 
-            from(gtfsRtTripUpdateTopic)
-                    .to("direct:register.gtfs.rt.trip.updates")
-            ;
+             */
 
             from("direct:send.to.pubsub.topic.siri.vm")
                     .wireTap("direct:log.incoming.siri.vm")
@@ -91,19 +89,9 @@ public class PubSubRoute extends RouteBuilder {
             from(siriVmTopic)
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
-                    .loop(header(LIST_COUNT_HEADER_NAME)).copy()
-                    .process(exchange -> {
-                        final List<GtfsRealtime.VehiclePosition.Builder> vehiclePositions = exchange.getIn().getBody(List.class);
-                        exchange.getOut().setBody(vehiclePositions.get(Integer.parseInt(property(LOOP_INDEX).toString())));
-                        exchange.getOut().setHeaders(exchange.getIn().getHeaders());
-                    })
-                    .to(gtfsRtVehiclePositionTopic)
-                    .end()
-            ;
-
-            from(gtfsRtVehiclePositionTopic)
                     .to("direct:register.gtfs.rt.vehicle.positions")
             ;
+            /*
 
             from("direct:send.to.pubsub.topic.siri.sx")
                     .wireTap("direct:log.incoming.siri.sx")
@@ -119,12 +107,8 @@ public class PubSubRoute extends RouteBuilder {
                         exchange.getOut().setBody(alerts.get(Integer.parseInt(property(LOOP_INDEX).toString())));
                         exchange.getOut().setHeaders(exchange.getIn().getHeaders());
                     })
-                    .to(gtfsRtAlertTopic)
-                    .end()
-            ;
-
-            from(gtfsRtAlertTopic)
                     .to("direct:register.gtfs.rt.alerts")
+                    .end()
             ;
 
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
@@ -146,10 +130,12 @@ public class PubSubRoute extends RouteBuilder {
                     })
             ;
 
+             */
+
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
+                        List<GtfsRealtime.FeedEntity> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
                         p.getOut().setBody(body);
                         p.getOut().setHeaders(p.getIn().getHeaders());
                         p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
@@ -159,11 +145,12 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final GtfsRealtime.FeedEntity.Builder vehiclePosition = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
+                        final List<GtfsRealtime.FeedEntity> vehiclePosition = p.getIn().getBody(List.class);
                         final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition, datasource);
                     })
             ;
+            /*
 
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
@@ -190,17 +177,22 @@ public class PubSubRoute extends RouteBuilder {
                     })
             ;
 
+             */
+
             from("direct:log.incoming.siri.vm")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_VM", 1, false);
                     })
             ;
 
+            /*
             from("direct:log.incoming.siri.sx")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_SX", 1, false);
                     })
             ;
+
+             */
 
         }
     }

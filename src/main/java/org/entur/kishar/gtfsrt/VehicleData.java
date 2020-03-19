@@ -17,7 +17,9 @@ package org.entur.kishar.gtfsrt;
 
 import uk.org.siri.siri20.VehicleActivityStructure;
 
-class VehicleData {
+import java.io.Serializable;
+
+class VehicleData implements Serializable {
 
   private final TripAndVehicleKey key;
 

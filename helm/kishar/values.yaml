@@ -42,6 +42,15 @@ configmap:
     host: tcp://vernemq.default:1883
     username: kishar
     password: <password>
+  pubsub:
+    enabled: true
+    topic:
+      et: entur-google-pubsub://kishar-gtfs-rt.siri-et
+      tripupdate: entur-google-pubsub://kishar-gtfs-rt.trip-updates
+      vm: entur-google-pubsub://kishar-gtfs-rt.siri-vm
+      vehicleposition: entur-google-pubsub://kishar-gtfs-rt.vehicle-positions
+      sx: entur-google-pubsub://kishar-gtfs-rt.siri-sx
+      alert: entur-google-pubsub://kishar-gtfs-rt.alerts
 
 resources:
   cpuLimit: "7"

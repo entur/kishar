@@ -17,10 +17,13 @@ package org.entur.kishar.gtfsrt;
 import com.google.api.client.util.Lists;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
+import org.entur.kishar.gtfsrt.domain.FeedEntityBuilder;
+import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -73,6 +76,8 @@ public class SiriToGtfsRealtimeService {
     @Autowired
     private PrometheusMetricsService prometheusMetricsService;
 
+    private RedisService redisService;
+
     /**
      * Time, in seconds, after which a vehicle update is considered stale
      */
@@ -84,16 +89,10 @@ public class SiriToGtfsRealtimeService {
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
-    private List<FeedEntity.Builder> vehiclePositionBuilders = Lists.newArrayList();
-    private Map<String, List<FeedEntity.Builder>> vehiclePositionBuildersByDatasource = Maps.newHashMap();
-    private List<FeedEntity.Builder> tripUpdatesBuilders = Lists.newArrayList();
-    private Map<String, List<FeedEntity.Builder>> tripUpdatesBuildersByDatasource = Maps.newHashMap();
-    private List<FeedEntity.Builder> alertsBuilders = Lists.newArrayList();
-    private Map<String, List<FeedEntity.Builder>> alertsBuildersByDatasource = Maps.newHashMap();
-
     private GtfsRtMapper gtfsMapper;
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
+                                     @Autowired RedisService redisService,
                                      @Value("${kishar.datasource.et.whitelist}") List<String> datasourceETWhitelist,
                                      @Value("${kishar.datasource.vm.whitelist}") List<String> datasourceVMWhitelist,
                                      @Value("${kishar.datasource.sx.whitelist}") List<String> datasourceSXWhitelist,
@@ -103,6 +102,7 @@ public class SiriToGtfsRealtimeService {
         this.datasourceVMWhitelist = datasourceVMWhitelist;
         this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
+        this.redisService = redisService;
         this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance);
     }
 
@@ -115,7 +115,6 @@ public class SiriToGtfsRealtimeService {
         }
     };
 
-    /*
 
     public Object getTripUpdates(String contentType, String datasource) {
         if (prometheusMetricsService != null) {
@@ -157,80 +156,6 @@ public class SiriToGtfsRealtimeService {
             }
         }
         return encodeFeedMessage(feedMessage, contentType);
-    }
-
-    */
-
-    public Object getTripUpdates(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_ET", 1);
-        }
-        FeedMessage.Builder feedMessage = createFeedMessageBuilder();
-        if (datasource != null && !datasource.isEmpty()) {
-            List<FeedEntity.Builder> entities = tripUpdatesBuildersByDatasource.get(datasource);
-            if (entities != null) {
-                for (FeedEntity.Builder entity : entities) {
-                    feedMessage.addEntity(entity);
-                }
-            } else {
-                feedMessage = createFeedMessageBuilder();
-            }
-        } else {
-            if (!tripUpdatesBuilders.isEmpty()) {
-                for (FeedEntity.Builder entity : tripUpdatesBuilders) {
-                    feedMessage.addEntity(entity);
-                }
-            }
-        }
-        return encodeFeedMessage(feedMessage.build(), contentType);
-    }
-
-    public Object getVehiclePositions(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_VM", 1);
-        }
-        FeedMessage.Builder feedMessage = createFeedMessageBuilder();
-        if (datasource != null && !datasource.isEmpty()) {
-            List<FeedEntity.Builder> entities = vehiclePositionBuildersByDatasource.get(datasource);
-            if (entities != null) {
-                for (FeedEntity.Builder entity : entities) {
-                    feedMessage.addEntity(entity);
-                }
-            } else {
-                feedMessage = createFeedMessageBuilder();
-            }
-        } else {
-            if (!vehiclePositionBuilders.isEmpty()) {
-                for (FeedEntity.Builder entity : vehiclePositionBuilders) {
-                    feedMessage.addEntity(entity);
-                }
-            }
-        }
-        return encodeFeedMessage(feedMessage.build(), contentType);
-    }
-
-    public Object getAlerts(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_SX", 1);
-        }
-        FeedMessage.Builder feedMessage = createFeedMessageBuilder();
-        if (datasource != null && !datasource.isEmpty()) {
-            List<FeedEntity.Builder> entities = alertsBuildersByDatasource.get(datasource);
-            if (entities != null) {
-                for (FeedEntity.Builder entity : entities) {
-                    feedMessage.addEntity(entity);
-                }
-            } else {
-                feedMessage = createFeedMessageBuilder();
-            }
-        } else {
-            if (!alertsBuilders.isEmpty()) {
-                for (FeedEntity.Builder entity : alertsBuilders) {
-                    feedMessage.addEntity(entity);
-                }
-            }
-        }
-        return encodeFeedMessage(feedMessage.build(), contentType);
     }
 
     private Object encodeFeedMessage(FeedMessage feedMessage, String contentType) {
@@ -482,10 +407,6 @@ public class SiriToGtfsRealtimeService {
     }
 
     public void writeOutput() throws IOException {
-        if (!newData) {
-            LOG.info("No new data received - ignore updating output.");
-            return;
-        }
         newData = false;
         long t1 = System.currentTimeMillis();
         writeTripUpdates();
@@ -561,57 +482,36 @@ public class SiriToGtfsRealtimeService {
         return b.toString();
     }
 
-    private void writeVehiclePositions() throws IOException {
+    private void writeVehiclePositions() {
 
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
-        long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
-        for (Iterator<VehicleData> it = dataByVehicle.values().iterator(); it.hasNext(); ) {
-            VehicleData data = it.next();
-            if (isDataStale(data.getTimestamp(), feedTimestamp)) {
-                it.remove();
+        Map<byte[], byte[]> vehiclePositionMap = redisService.readAllVehiclePositions();
+
+        for (byte[] keyBytes : vehiclePositionMap.keySet()) {
+            VehiclePositionKey key = VehiclePositionKey.create(keyBytes);
+            FeedEntity entity = null;
+            try {
+                byte[] data = vehiclePositionMap.get(keyBytes);
+                data = Arrays.copyOfRange(data, 16, data.length);
+                entity = FeedEntity.parseFrom(data);
+            } catch (InvalidProtocolBufferException e) {
+                LOG.error("invalid feed entity from reddis with key: " + key, e);
                 continue;
             }
 
-            TripAndVehicleKey key = data.getKey();
-            VehicleActivityStructure activity = data.getVehicleActivity();
+            String datasource = key.getDatasource();
 
-            MonitoredVehicleJourney mvj = activity.getMonitoredVehicleJourney();
-
-            if (hasVehiclePositionMonitoringError(mvj)) {
-                continue;
-            }
-
-            String datasource = mvj.getDataSource();
             FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
+
             if (feedMessageBuilderByDatasource == null) {
                 feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
-            VehiclePosition.Builder vp = null;
-            try {
-                checkPreconditions(activity, false);
-
-                vp = gtfsMapper.convertSiriToGtfsRt(activity);
-            } catch (Throwable t) {
-                LOG.info("Ignoring update, preconditions failed: " + t.getMessage());
-            }
-
-            if (vp != null) {
-
-                if (vp.getTimestamp() <= 0) {
-                    vp.setTimestamp(feedTimestamp);
-                }
-
-                FeedEntity.Builder entity = FeedEntity.newBuilder();
-                entity.setId(getVehicleIdForKey(key));
-
-                entity.setVehicle(vp);
-                feedMessageBuilder.addEntity(entity);
-                feedMessageBuilderByDatasource.addEntity(entity);
-                feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
-            }
+            feedMessageBuilder.addEntity(entity);
+            feedMessageBuilderByDatasource.addEntity(entity);
+            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
         }
 
         setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
@@ -751,9 +651,9 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    public List<FeedEntity.Builder> convertSiriVmToGtfsRt(Siri siri) {
+    public List<FeedEntity> convertSiriVmToGtfsRt(Siri siri) {
 
-        List<FeedEntity.Builder> result = Lists.newArrayList();
+        List<FeedEntity> result = Lists.newArrayList();
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
             if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
@@ -772,7 +672,7 @@ public class SiriToGtfsRealtimeService {
                                     entity.setId(getVehicleIdForKey(getKey(activity)));
 
                                     entity.setVehicle(builder);
-                                    result.add(entity);
+                                    result.add(entity.build());
                                 } catch (Exception e) {
                                     LOG.error("Failed parsing vehicle activity", e);
                                 }
@@ -782,18 +682,13 @@ public class SiriToGtfsRealtimeService {
                 }
             }
         }
+        LOG.info("converted siri VM");
         return result;
     }
 
-    public void registerGtfsRtVehiclePosition(FeedEntity.Builder vehiclePositions, String datasource) {
-        vehiclePositionBuilders.add(vehiclePositions);
-        if (vehiclePositionBuildersByDatasource.containsKey(datasource)) {
-            vehiclePositionBuildersByDatasource.get(datasource).add(vehiclePositions);
-        } else {
-            List<FeedEntity.Builder> list = Lists.newArrayList();
-            list.add(vehiclePositions);
-            vehiclePositionBuildersByDatasource.put(datasource, list);
-        }
+    public void registerGtfsRtVehiclePosition(List<FeedEntity> vehiclePositions, String datasource) {
+        redisService.writeVehiclePositions(vehiclePositions, datasource);
+        LOG.info("wrote to redis VM");
     }
 
     public String getDatasourceFromSiriEt(Siri siri) {
@@ -848,17 +743,6 @@ public class SiriToGtfsRealtimeService {
         return result;
     }
 
-    public void registerGtfsRtTripUpdate(FeedEntity.Builder tripUpdate, String datasource) {
-        tripUpdatesBuilders.add(tripUpdate);
-        if (tripUpdatesBuildersByDatasource.containsKey(datasource)) {
-            tripUpdatesBuildersByDatasource.get(datasource).add(tripUpdate);
-        } else {
-            List<FeedEntity.Builder> list = Lists.newArrayList();
-            list.add(tripUpdate);
-            tripUpdatesBuildersByDatasource.put(datasource, list);
-        }
-    }
-
     public String getDatasourceFromSiriSx(Siri siri) {
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
@@ -901,16 +785,5 @@ public class SiriToGtfsRealtimeService {
             }
         }
         return result;
-    }
-
-    public void registerGtfsRtAlert(FeedEntity.Builder alert, String datasource) {
-        alertsBuilders.add(alert);
-        if (alertsBuildersByDatasource.containsKey(datasource)) {
-            alertsBuildersByDatasource.get(datasource).add(alert);
-        } else {
-            List<FeedEntity.Builder> list = Lists.newArrayList();
-            list.add(alert);
-            alertsBuildersByDatasource.put(datasource, list);
-        }
     }
 }

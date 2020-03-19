@@ -31,6 +31,8 @@ configmap:
       vm: 95
     distance:
       vm: 500
+  pubsub:
+    project-id: carbon-1287
 
 ingress:
   enabled: true

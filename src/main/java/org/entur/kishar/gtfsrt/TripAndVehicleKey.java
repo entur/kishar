@@ -15,7 +15,9 @@
  */
 package org.entur.kishar.gtfsrt;
 
-class TripAndVehicleKey {
+import java.io.Serializable;
+
+public class TripAndVehicleKey implements Serializable {
 
   private final String tripId;
 

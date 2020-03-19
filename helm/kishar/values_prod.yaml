@@ -1,5 +1,9 @@
 env: production
 
+configmap:
+  pubsub:
+    project-id: neon-1287
+
 ingress:
   enabled: true
   productionIp: 35.187.15.14

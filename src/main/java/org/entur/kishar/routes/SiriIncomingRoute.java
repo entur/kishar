@@ -75,6 +75,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .process(p -> stop(p.getIn().getHeader(PATH_HEADER, String.class)));
 
         String path_VM = getPath(ansharUrlVm);
+        /*
         from("timer://kishar.polling_vm?fixedRate=true&period=" + pollingPeriod)
                 .choice()
                 .when(p -> !isInProgress(path_VM))
@@ -83,6 +84,8 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .endChoice()
                 .routeId("kishar.polling.vm")
         ;
+
+         */
 
         String path_ET = getPath(ansharUrlEt);
         from("timer://kishar.polling_et?fixedRate=true&period=" + pollingPeriod)
@@ -128,9 +131,9 @@ public class SiriIncomingRoute extends RestRouteBuilder {
 
 
         rest("/internal")
-                .post("siri-et").to("direct:forward.siri.et.to.pubsub").id("kishar.internal.et")
+                //.post("siri-et").to("direct:forward.siri.et.to.pubsub").id("kishar.internal.et")
                 .post("siri-vm").to("direct:forward.siri.vm.to.pubsub").id("kishar.internal.vm")
-                .post("siri-sx").to("direct:forward.siri.sx.to.pubsub").id("kishar.internal.sx")
+                //.post("siri-sx").to("direct:forward.siri.sx.to.pubsub").id("kishar.internal.sx")
         ;
 
         from("direct:forward.siri.vm.to.pubsub")
@@ -163,6 +166,7 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .setBody(constant(null))
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant("200"))
         ;
+        /*
 
         from("direct:process.et")
                 .routeId("kishar.process.et.xml")
@@ -189,6 +193,8 @@ public class SiriIncomingRoute extends RestRouteBuilder {
                 .to("direct:send.to.pubsub.topic.siri.sx")
                 .end()
         ;
+
+         */
     }
 
     private String getPath(String url) {

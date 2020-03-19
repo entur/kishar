@@ -126,7 +126,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     @Test
     public void testEtToTripUpdateFilterOnDatasource() throws IOException {
         // Specifying local service for specific datasource-testing
-        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(),
+        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), new RedisService(),
                 Lists.newArrayList("RUT", "BNR"), Lists.newArrayList(),
                 Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
@@ -187,7 +187,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testEtToTripUpdateNoWhitelist() throws IOException {
-        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
+        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), new RedisService(), Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
