@@ -51,6 +51,9 @@ configmap:
       vehicleposition: entur-google-pubsub://kishar-gtfs-rt.vehicle-positions
       sx: entur-google-pubsub://kishar-gtfs-rt.siri-sx
       alert: entur-google-pubsub://kishar-gtfs-rt.alerts
+  reddis:
+    enabled: true
+    url: 127.0.0.1:6379
 
 resources:
   cpuLimit: "7"

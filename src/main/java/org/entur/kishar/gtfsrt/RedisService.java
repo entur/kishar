@@ -1,5 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
+import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
 import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.redisson.Redisson;
@@ -11,6 +12,7 @@ import org.redisson.client.codec.ByteArrayCodec;
 import org.redisson.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -24,38 +26,48 @@ public class RedisService {
     private static Logger LOG = LoggerFactory.getLogger(RedisService.class);
 
     private final static String VEHICLE_POSITION_MAP = "vehiclePositionMap";
+    private final boolean reddisEnabled;
 
     RedissonClient redisson;
 
-    public RedisService() {
+    public RedisService(@Value("${kishar.reddis.enabled}") boolean reddisEnabled, @Value("${kishar.reddis.url}") String url) {
+        this.reddisEnabled = reddisEnabled;
 
-        Config config = new Config();
-        config.useReplicatedServers()
-                .addNodeAddress("redis://127.0.0.1:6379");
+        if (reddisEnabled) {
+            Config config = new Config();
+            config.useReplicatedServers()
+                    .addNodeAddress("redis://" + url);
 
-        redisson = Redisson.create(config);
+            redisson = Redisson.create(config);
+        }
     }
 
     public void writeVehiclePositions(List<GtfsRealtime.FeedEntity> vehiclePositions, String datasource) {
-        RMapCache<byte[], byte[]> vehiclePositionMap = redisson.getMapCache(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE);
-        for (GtfsRealtime.FeedEntity vehiclePosition : vehiclePositions) {
+        if (reddisEnabled) {
+            RMapCache<byte[], byte[]> vehiclePositionMap = redisson.getMapCache(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE);
+            for (GtfsRealtime.FeedEntity vehiclePosition : vehiclePositions) {
 
-            try {
-                vehiclePositionMap.put(new VehiclePositionKey(vehiclePosition.getId(), datasource).toByteArray(), vehiclePosition.toByteArray(), 5, TimeUnit.MINUTES);
-            } catch (IOException e) {
-                LOG.error("failed to serialize key to byte array", e);
+                try {
+                    vehiclePositionMap.put(new VehiclePositionKey(vehiclePosition.getId(), datasource).toByteArray(), vehiclePosition.toByteArray(), 5, TimeUnit.MINUTES);
+                } catch (IOException e) {
+                    LOG.error("failed to serialize key to byte array", e);
+                }
             }
+            vehiclePositionMap.destroy();
         }
-        vehiclePositionMap.destroy();
     }
 
     public Map<byte[], byte[]> readAllVehiclePositions() {
-        RLocalCachedMap<byte[], byte[]> vehiclePositionMap = redisson.getLocalCachedMap(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE, LocalCachedMapOptions.defaults());
+        if (reddisEnabled) {
+            RLocalCachedMap<byte[], byte[]> vehiclePositionMap = redisson.getLocalCachedMap(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE, LocalCachedMapOptions.defaults());
 
-        Set<byte[]> keys = vehiclePositionMap.keySet();
-        Map<byte[], byte[]> result = vehiclePositionMap.getAll(keys);
+            Set<byte[]> keys = vehiclePositionMap.keySet();
+            Map<byte[], byte[]> result = vehiclePositionMap.getAll(keys);
 
-        vehiclePositionMap.destroy();
-        return result;
+            vehiclePositionMap.destroy();
+            return result;
+        } else {
+            return Maps.newHashMap();
+        }
     }
 }
