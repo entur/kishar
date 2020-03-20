@@ -8,6 +8,9 @@ configmap:
       sx:
   pubsub:
     project_id: neon-1287
+  reddis:
+    enabled: false
+    url: 10.128.185.163:6379
 
 ingress:
   enabled: true

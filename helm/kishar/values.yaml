@@ -52,8 +52,7 @@ configmap:
       sx: entur-google-pubsub://kishar-gtfs-rt.siri-sx
       alert: entur-google-pubsub://kishar-gtfs-rt.alerts
   reddis:
-    enabled: true
-    url: 127.0.0.1:6379
+    enabled: false
 
 resources:
   cpuLimit: "7"

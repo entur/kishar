@@ -33,6 +33,9 @@ configmap:
       vm: 500
   pubsub:
     project_id: carbon-1287
+  reddis:
+    enabled: true
+    url: 10.128.185.163:6379
 
 ingress:
   enabled: true
