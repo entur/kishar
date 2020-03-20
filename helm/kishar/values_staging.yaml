@@ -7,7 +7,7 @@ configmap:
       vm:
       sx:
   pubsub:
-    project-id: neon-1287
+    project_id: neon-1287
 
 ingress:
   enabled: true

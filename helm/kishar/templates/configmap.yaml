@@ -27,7 +27,9 @@ data:
     kishar.pubsub.topic.alert={{ .Values.configmap.pubsub.topic.alert }}
 
     kishar.reddis.enabled={{ .Values.configmap.reddis.enabled }}
-    spring.cloud.gcp.pubsub.project-id={{ .Values.configmap.pubsub.project-id }}
+
+    spring.cloud.gcp.pubsub.project-id={{ .Values.configmap.pubsub.project_id }}
+
 kind: ConfigMap
 metadata:
   name: {{ template "kishar.name" . }}-config

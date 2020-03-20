@@ -2,7 +2,7 @@ env: production
 
 configmap:
   pubsub:
-    project-id: neon-1287
+    project_id: radon-1287
 
 ingress:
   enabled: true
