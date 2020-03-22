@@ -31,6 +31,7 @@ public class RedisService {
     RedissonClient redisson;
 
     public RedisService(@Value("${kishar.reddis.enabled}") boolean reddisEnabled, @Value("${kishar.reddis.url}") String url) {
+        LOG.info("Reddis URL: " + url);
         this.reddisEnabled = reddisEnabled;
 
         if (reddisEnabled) {
