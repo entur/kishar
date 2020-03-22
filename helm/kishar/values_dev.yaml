@@ -35,7 +35,7 @@ configmap:
     project_id: carbon-1287
   reddis:
     enabled: true
-    url: 10.128.185.163:6379
+    url: 10.66.12.51:6379
 
 ingress:
   enabled: true
