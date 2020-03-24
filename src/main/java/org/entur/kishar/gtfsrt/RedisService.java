@@ -23,6 +23,23 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisService {
+
+    enum Type {
+        VEHICLE_POSITION("vehiclePositionMap"),
+        TRIP_UPDATE("tripUpdateMap"),
+        ALERT("alertMap");
+
+        private String mapIdentifier;
+
+        Type(String mapIdentifier) {
+            this.mapIdentifier = mapIdentifier;
+        }
+
+        public String getMapIdentifier() {
+            return mapIdentifier;
+        }
+    }
+
     private static Logger LOG = LoggerFactory.getLogger(RedisService.class);
 
     private final static String VEHICLE_POSITION_MAP = "vehiclePositionMap";
@@ -42,29 +59,23 @@ public class RedisService {
         }
     }
 
-    public void writeVehiclePositions(List<GtfsRealtime.FeedEntity> vehiclePositions, String datasource) {
+    public void writeGtfsRt(Map<byte[], byte[]> gtfsRt, Type type) {
         if (reddisEnabled) {
-            RMapCache<byte[], byte[]> vehiclePositionMap = redisson.getMapCache(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE);
-            for (GtfsRealtime.FeedEntity vehiclePosition : vehiclePositions) {
+            RMapCache<byte[], byte[]> gtfsRtMap = redisson.getMapCache(type.getMapIdentifier(), ByteArrayCodec.INSTANCE);
+            gtfsRtMap.putAll(gtfsRt, 5, TimeUnit.MINUTES);
 
-                try {
-                    vehiclePositionMap.put(new VehiclePositionKey(vehiclePosition.getId(), datasource).toByteArray(), vehiclePosition.toByteArray(), 5, TimeUnit.MINUTES);
-                } catch (IOException e) {
-                    LOG.error("failed to serialize key to byte array", e);
-                }
-            }
-            vehiclePositionMap.destroy();
+            gtfsRtMap.destroy();
         }
     }
 
-    public Map<byte[], byte[]> readAllVehiclePositions() {
+    public Map<byte[], byte[]> readGtfsRtMap(Type type) {
         if (reddisEnabled) {
-            RLocalCachedMap<byte[], byte[]> vehiclePositionMap = redisson.getLocalCachedMap(VEHICLE_POSITION_MAP, ByteArrayCodec.INSTANCE, LocalCachedMapOptions.defaults());
+            RLocalCachedMap<byte[], byte[]> gtfsRtMap = redisson.getLocalCachedMap(type.getMapIdentifier(), ByteArrayCodec.INSTANCE, LocalCachedMapOptions.defaults());
 
-            Set<byte[]> keys = vehiclePositionMap.keySet();
-            Map<byte[], byte[]> result = vehiclePositionMap.getAll(keys);
+            Set<byte[]> keys = gtfsRtMap.keySet();
+            Map<byte[], byte[]> result = gtfsRtMap.getAll(keys);
 
-            vehiclePositionMap.destroy();
+            gtfsRtMap.destroy();
             return result;
         } else {
             return Maps.newHashMap();

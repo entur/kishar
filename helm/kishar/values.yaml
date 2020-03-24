@@ -45,12 +45,7 @@ configmap:
   pubsub:
     enabled: true
     topic:
-      et: entur-google-pubsub://kishar-gtfs-rt.siri-et
-      tripupdate: entur-google-pubsub://kishar-gtfs-rt.trip-updates
       vm: entur-google-pubsub://kishar-gtfs-rt.siri-vm
-      vehicleposition: entur-google-pubsub://kishar-gtfs-rt.vehicle-positions
-      sx: entur-google-pubsub://kishar-gtfs-rt.siri-sx
-      alert: entur-google-pubsub://kishar-gtfs-rt.alerts
   reddis:
     enabled: false
 

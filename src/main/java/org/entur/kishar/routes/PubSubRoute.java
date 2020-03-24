@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import uk.org.siri.siri20.Siri;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.apache.camel.Exchange.LOOP_INDEX;
@@ -31,23 +32,8 @@ public class PubSubRoute extends RouteBuilder {
     @Value("${kishar.pubsub.enabled:false}")
     private boolean pubsubEnabled;
 
-    @Value("${kishar.pubsub.topic.et}")
-    private String siriEtTopic;
-
-    @Value("${kishar.pubsub.topic.tripupdate}")
-    private String gtfsRtTripUpdateTopic;
-
     @Value("${kishar.pubsub.topic.vm}")
     private String siriVmTopic;
-
-    @Value("${kishar.pubsub.topic.vehicleposition}")
-    private String gtfsRtVehiclePositionTopic;
-
-    @Value("${kishar.pubsub.topic.sx}")
-    private String siriSxTopic;
-
-    @Value("${kishar.pubsub.topic.alert}")
-    private String gtfsRtAlertTopic;
 
     @Autowired
     private PrometheusMetricsService metrics;
@@ -60,26 +46,13 @@ public class PubSubRoute extends RouteBuilder {
 
 
         if (pubsubEnabled) {
-            /*
+
             from("direct:send.to.pubsub.topic.siri.et")
                     .wireTap("direct:log.incoming.siri.et")
-                    .to(siriEtTopic)
-            ;
-
-            from(siriEtTopic)
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.trip.updates")
-                    .loop(header(LIST_COUNT_HEADER_NAME)).copy()
-                        .process(exchange -> {
-                            final List<GtfsRealtime.TripUpdate.Builder> tripUpdates = exchange.getIn().getBody(List.class);
-                            exchange.getOut().setBody(tripUpdates.get(Integer.parseInt(property(LOOP_INDEX).toString())));
-                            exchange.getOut().setHeaders(exchange.getIn().getHeaders());
-                        })
-                        .to("direct:register.gtfs.rt.trip.updates")
-                    .end()
+                    .to("direct:register.gtfs.rt.trip.updates")
             ;
-
-             */
 
             from("direct:send.to.pubsub.topic.siri.vm")
                     .wireTap("direct:log.incoming.siri.vm")
@@ -91,83 +64,57 @@ public class PubSubRoute extends RouteBuilder {
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .to("direct:register.gtfs.rt.vehicle.positions")
             ;
-            /*
+
 
             from("direct:send.to.pubsub.topic.siri.sx")
                     .wireTap("direct:log.incoming.siri.sx")
-                    .to(siriSxTopic)
-            ;
-
-            from(siriSxTopic)
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.alerts")
-                    .loop(header(LIST_COUNT_HEADER_NAME)).copy()
-                    .process(exchange -> {
-                        final List<GtfsRealtime.Alert.Builder> alerts = exchange.getIn().getBody(List.class);
-                        exchange.getOut().setBody(alerts.get(Integer.parseInt(property(LOOP_INDEX).toString())));
-                        exchange.getOut().setHeaders(exchange.getIn().getHeaders());
-                    })
                     .to("direct:register.gtfs.rt.alerts")
-                    .end()
             ;
 
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
+                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
                         p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
-                        p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
-                        p.getOut().setHeader(DATASOURCE_HEADER_NAME, siriToGtfsRealtimeService.getDatasourceFromSiriEt(siri));
                     })
             ;
 
             from ("direct:register.gtfs.rt.trip.updates")
                     .process( p -> {
-                        final GtfsRealtime.FeedEntity.Builder tripUpdate = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
-                        final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
-                        siriToGtfsRealtimeService.registerGtfsRtTripUpdate(tripUpdate, datasource);
+                        final Map<byte[], byte[]> tripUpdate = p.getIn().getBody(Map.class);
+                        siriToGtfsRealtimeService.registerGtfsRtTripUpdates(tripUpdate);
                     })
             ;
-
-             */
 
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.FeedEntity> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
+                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
                         p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
-                        p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
-                        p.getOut().setHeader(DATASOURCE_HEADER_NAME, siriToGtfsRealtimeService.getDatasourceFromSiriVm(siri));
                     })
             ;
 
             from ("direct:register.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final List<GtfsRealtime.FeedEntity> vehiclePosition = p.getIn().getBody(List.class);
-                        final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
-                        siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition, datasource);
+                        final Map<byte[], byte[]> vehiclePosition = p.getIn().getBody(Map.class);
+                        siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
                     })
             ;
-            /*
 
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
                         final Siri siri = p.getIn().getBody(Siri.class);
-                        List<GtfsRealtime.FeedEntity.Builder> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
+                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
                         p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
-                        p.getOut().setHeader(LIST_COUNT_HEADER_NAME, body.size());
-                        p.getOut().setHeader(DATASOURCE_HEADER_NAME, siriToGtfsRealtimeService.getDatasourceFromSiriSx(siri));
                     })
             ;
 
             from ("direct:register.gtfs.rt.alerts")
                     .process( p -> {
-                        final GtfsRealtime.FeedEntity.Builder alert = p.getIn().getBody(GtfsRealtime.FeedEntity.Builder.class);
-                        final String datasource = p.getIn().getHeader(DATASOURCE_HEADER_NAME, String.class);
-                        siriToGtfsRealtimeService.registerGtfsRtAlert(alert, datasource);
+                        final Map<byte[], byte[]> alert = p.getIn().getBody(Map.class);
+                        siriToGtfsRealtimeService.registerGtfsRtAlerts(alert);
                     })
             ;
 
@@ -177,23 +124,17 @@ public class PubSubRoute extends RouteBuilder {
                     })
             ;
 
-             */
-
             from("direct:log.incoming.siri.vm")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_VM", 1, false);
                     })
             ;
 
-            /*
             from("direct:log.incoming.siri.sx")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_SX", 1, false);
                     })
             ;
-
-             */
-
         }
     }
 

@@ -18,11 +18,9 @@ import com.google.api.client.util.Lists;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.*;
-import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeEvent;
-import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
-import org.entur.kishar.gtfsrt.domain.FeedEntityBuilder;
+import org.entur.kishar.gtfsrt.domain.AlertKey;
+import org.entur.kishar.gtfsrt.domain.TripUpdateKey;
 import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
@@ -37,10 +35,6 @@ import uk.org.siri.siri20.SituationExchangeDeliveryStructure.Situations;
 import uk.org.siri.siri20.VehicleActivityStructure.MonitoredVehicleJourney;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -423,36 +417,28 @@ public class SiriToGtfsRealtimeService {
 
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
-        long feedTimestamp = feedMessageBuilder.getHeader().getTimestamp() * 1000;
 
-        for (Iterator<EstimatedVehicleJourneyData> it = dataByTimetable.values().iterator(); it.hasNext(); ) {
-            EstimatedVehicleJourneyData data = it.next();
+        Map<byte[], byte[]> tripUpdateMap = redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE);
 
-            if (isDataStale(data.getTimestamp(), feedTimestamp)) {
-                it.remove();
+        for (byte[] keyBytes : tripUpdateMap.keySet()) {
+            TripUpdateKey key = TripUpdateKey.create(keyBytes);
+
+            FeedEntity entity = null;
+            try {
+                byte[] data = tripUpdateMap.get(keyBytes);
+                data = Arrays.copyOfRange(data, 16, data.length);
+                entity = FeedEntity.parseFrom(data);
+            } catch (InvalidProtocolBufferException e) {
+                LOG.error("invalid feed entity from reddis with key: " + key, e);
                 continue;
             }
 
-            EstimatedVehicleJourney vehicleJourney = data.getEstimatedVehicleJourney();
-
-            if (vehicleJourney.isMonitored() != null && vehicleJourney.isMonitored()) {
-                if (vehicleJourney.isCancellation() != null && !vehicleJourney.isCancellation()) {
-                    continue;
-                }
-            }
-
-            String datasource = vehicleJourney.getDataSource();
+            String datasource = key.getDatasource();
             FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
             if (feedMessageBuilderByDatasource == null) {
                 feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
-            TripUpdate.Builder tripUpdate = gtfsMapper.mapTripUpdateFromVehicleJourney(vehicleJourney);
-
-            FeedEntity.Builder entity = FeedEntity.newBuilder();
-            entity.setId(getTripIdForEstimatedVehicleJourney(vehicleJourney));
-
-            entity.setTripUpdate(tripUpdate);
             feedMessageBuilder.addEntity(entity);
             feedMessageBuilderByDatasource.addEntity(entity);
             feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
@@ -487,7 +473,7 @@ public class SiriToGtfsRealtimeService {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
-        Map<byte[], byte[]> vehiclePositionMap = redisService.readAllVehiclePositions();
+        Map<byte[], byte[]> vehiclePositionMap = redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION);
 
         for (byte[] keyBytes : vehiclePositionMap.keySet()) {
             VehiclePositionKey key = VehiclePositionKey.create(keyBytes);
@@ -529,44 +515,26 @@ public class SiriToGtfsRealtimeService {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
-        ZonedDateTime now = ZonedDateTime.now();
+        Map<byte[], byte[]> alertMap = redisService.readGtfsRtMap(RedisService.Type.ALERT);
 
-        for (Iterator<AlertData> it = alertDataById.values().iterator(); it.hasNext(); ) {
-            AlertData data = it.next();
+        for (byte[] keyBytes : alertMap.keySet()) {
+            AlertKey key = AlertKey.create(keyBytes);
+            FeedEntity entity = null;
+            try {
+                byte[] data = alertMap.get(keyBytes);
+                data = Arrays.copyOfRange(data, 16, data.length);
+                entity = FeedEntity.parseFrom(data);
+            } catch (InvalidProtocolBufferException e) {
+                LOG.error("invalid feed entity from reddis with key: " + key, e);
+                continue;
+            }
 
-            PtSituationElement situation = data.getSituation();
-
-            String datasource = situation.getParticipantRef().getValue();
+            String datasource = key.getDatasource();
             FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
             if (feedMessageBuilderByDatasource == null) {
                 feedMessageBuilderByDatasource = createFeedMessageBuilder();
             }
 
-            /**
-             * If the situation has been closed or has expired, we no longer show the
-             * alert in the GTFS-realtime feed.
-             */
-            if (SiriLibrary.isSituationClosed(situation)
-                    || SiriLibrary.isSituationExpired(situation, now)
-                    || SiriLibrary.isAlertDataExpired(data)) {
-                it.remove();
-                continue;
-            }
-
-            /**
-             * If the situation is not in a valid period, we no longer show the alert
-             * in the GTFS-realtime feed.
-             */
-            if (!SiriLibrary.isSituationPublishedOrValid(situation, now)) {
-                continue;
-            }
-
-            Alert.Builder alert = alertFactory.createAlertFromSituation(situation);
-
-            FeedEntity.Builder entity = FeedEntity.newBuilder();
-            entity.setId(situation.getSituationNumber().getValue());
-
-            entity.setAlert(alert);
             feedMessageBuilder.addEntity(entity);
             feedMessageBuilderByDatasource.addEntity(entity);
             feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
@@ -651,9 +619,9 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    public List<FeedEntity> convertSiriVmToGtfsRt(Siri siri) {
+    public Map<byte[], byte[]> convertSiriVmToGtfsRt(Siri siri) {
 
-        List<FeedEntity> result = Lists.newArrayList();
+        Map<byte[], byte[]> result = Maps.newHashMap();
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
             if (serviceDelivery.getVehicleMonitoringDeliveries().size() > 0) {
@@ -669,10 +637,12 @@ public class SiriToGtfsRealtimeService {
                                     }
 
                                     FeedEntity.Builder entity = FeedEntity.newBuilder();
-                                    entity.setId(getVehicleIdForKey(getKey(activity)));
+                                    String key = getVehicleIdForKey(getKey(activity));
+                                    entity.setId(key);
 
                                     entity.setVehicle(builder);
-                                    result.add(entity.build());
+                                    result.put(new VehiclePositionKey(key, activity.getMonitoredVehicleJourney().getDataSource()).toByteArray(),
+                                            entity.build().toByteArray());
                                 } catch (Exception e) {
                                     LOG.error("Failed parsing vehicle activity", e);
                                 }
@@ -682,13 +652,11 @@ public class SiriToGtfsRealtimeService {
                 }
             }
         }
-        LOG.info("converted siri VM");
         return result;
     }
 
-    public void registerGtfsRtVehiclePosition(List<FeedEntity> vehiclePositions, String datasource) {
-        redisService.writeVehiclePositions(vehiclePositions, datasource);
-        LOG.info("wrote to redis VM");
+    public void registerGtfsRtVehiclePosition(Map<byte[], byte[]> vehiclePositions) {
+        redisService.writeGtfsRt(vehiclePositions, RedisService.Type.VEHICLE_POSITION);
     }
 
     public String getDatasourceFromSiriEt(Siri siri) {
@@ -713,9 +681,9 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    public List<FeedEntity.Builder> convertSiriEtToGtfsRt(Siri siri) {
+    public Map<byte[], byte[]> convertSiriEtToGtfsRt(Siri siri) {
 
-        List<FeedEntity.Builder> result = Lists.newArrayList();
+        Map<byte[], byte[]> result = Maps.newHashMap();
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
             if (serviceDelivery.getEstimatedTimetableDeliveries().size() > 0) {
@@ -725,13 +693,19 @@ public class SiriToGtfsRealtimeService {
                             if (estimatedVersionFrameStructure != null && estimatedVersionFrameStructure.getEstimatedVehicleJourneies().size() > 0) {
                                 for (EstimatedVehicleJourney estimatedVehicleJourney : estimatedVersionFrameStructure.getEstimatedVehicleJourneies()) {
                                     if (estimatedVehicleJourney != null) {
-                                        TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
+                                        try {
+                                            checkPreconditions(estimatedVehicleJourney);
+                                            TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
 
-                                        FeedEntity.Builder entity = FeedEntity.newBuilder();
-                                        entity.setId(getTripIdForEstimatedVehicleJourney(estimatedVehicleJourney));
+                                            FeedEntity.Builder entity = FeedEntity.newBuilder();
+                                            String key = getTripIdForEstimatedVehicleJourney(estimatedVehicleJourney);
+                                            entity.setId(key);
 
-                                        entity.setTripUpdate(builder);
-                                        result.add(entity);
+                                            entity.setTripUpdate(builder);
+                                            result.put(new TripUpdateKey(key, estimatedVehicleJourney.getDataSource()).toByteArray(), entity.build().toByteArray());
+                                        } catch (Exception e) {
+                                            LOG.error("Failed parsing trip updates", e);
+                                        }
                                     }
                                 }
                             }
@@ -741,6 +715,10 @@ public class SiriToGtfsRealtimeService {
             }
         }
         return result;
+    }
+
+    public void registerGtfsRtTripUpdates(Map<byte[], byte[]> tripUpdates) {
+        redisService.writeGtfsRt(tripUpdates, RedisService.Type.TRIP_UPDATE);
     }
 
     public String getDatasourceFromSiriSx(Siri siri) {
@@ -761,9 +739,9 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    public List<FeedEntity.Builder> convertSiriSxToGtfsRt(Siri siri) {
+    public Map<byte[], byte[]> convertSiriSxToGtfsRt(Siri siri) {
 
-        List<FeedEntity.Builder> result = Lists.newArrayList();
+        Map<byte[], byte[]> result = Maps.newHashMap();
         ServiceDelivery serviceDelivery = siri.getServiceDelivery();
         if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveries() != null) {
             if (serviceDelivery.getSituationExchangeDeliveries().size() > 0) {
@@ -771,13 +749,19 @@ public class SiriToGtfsRealtimeService {
                     if (situationExchangeDeliveryStructure != null && situationExchangeDeliveryStructure.getSituations() != null && situationExchangeDeliveryStructure.getSituations().getPtSituationElements().size() > 0) {
                         for (PtSituationElement ptSituationElement : situationExchangeDeliveryStructure.getSituations().getPtSituationElements()) {
                             if (ptSituationElement != null) {
-                                Alert.Builder alertFromSituation = alertFactory.createAlertFromSituation(ptSituationElement);
+                                try {
+                                    checkPreconditions(ptSituationElement);
+                                    Alert.Builder alertFromSituation = alertFactory.createAlertFromSituation(ptSituationElement);
 
-                                FeedEntity.Builder entity = FeedEntity.newBuilder();
-                                entity.setId(ptSituationElement.getSituationNumber().getValue());
+                                    FeedEntity.Builder entity = FeedEntity.newBuilder();
+                                    String key = ptSituationElement.getSituationNumber().getValue();
+                                    entity.setId(key);
 
-                                entity.setAlert(alertFromSituation);
-                                result.add(entity);
+                                    entity.setAlert(alertFromSituation);
+                                    result.put(new AlertKey(key, ptSituationElement.getParticipantRef().getValue()).toByteArray(), entity.build().toByteArray());
+                                } catch (Exception e) {
+                                    LOG.error("Failed parsing trip updates", e);
+                                }
                             }
                         }
                     }
@@ -785,5 +769,9 @@ public class SiriToGtfsRealtimeService {
             }
         }
         return result;
+    }
+
+    public void registerGtfsRtAlerts(Map<byte[], byte[]> alerts) {
+        redisService.writeGtfsRt(alerts, RedisService.Type.ALERT);
     }
 }

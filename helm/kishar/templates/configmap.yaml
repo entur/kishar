@@ -19,12 +19,7 @@ data:
     kishar.mqtt.username={{ .Values.configmap.mqtt.username }}
 
     kishar.pubsub.enabled={{ .Values.configmap.pubsub.enabled }}
-    kishar.pubsub.topic.et={{ .Values.configmap.pubsub.topic.et }}
-    kishar.pubsub.topic.tripupdate={{ .Values.configmap.pubsub.topic.tripupdate }}
     kishar.pubsub.topic.vm={{ .Values.configmap.pubsub.topic.vm }}
-    kishar.pubsub.topic.vehicleposition={{ .Values.configmap.pubsub.topic.vehicleposition }}
-    kishar.pubsub.topic.sx={{ .Values.configmap.pubsub.topic.sx }}
-    kishar.pubsub.topic.alert={{ .Values.configmap.pubsub.topic.alert }}
 
     kishar.reddis.enabled={{ .Values.configmap.reddis.enabled }}
     kishar.reddis.url={{ .Values.configmap.reddis.url }}
