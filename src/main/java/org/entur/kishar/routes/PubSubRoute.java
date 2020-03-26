@@ -32,8 +32,14 @@ public class PubSubRoute extends RouteBuilder {
     @Value("${kishar.pubsub.enabled:false}")
     private boolean pubsubEnabled;
 
+    @Value("${kishar.pubsub.topic.et}")
+    private String siriEtTopic;
+
     @Value("${kishar.pubsub.topic.vm}")
     private String siriVmTopic;
+
+    @Value("${kishar.pubsub.topic.sx}")
+    private String siriSxTopic;
 
     @Autowired
     private PrometheusMetricsService metrics;
@@ -47,26 +53,21 @@ public class PubSubRoute extends RouteBuilder {
 
         if (pubsubEnabled) {
 
-            from("direct:send.to.pubsub.topic.siri.et")
+            from(siriEtTopic)
                     .wireTap("direct:log.incoming.siri.et")
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .to("direct:register.gtfs.rt.trip.updates")
             ;
 
-            from("direct:send.to.pubsub.topic.siri.vm")
-                    .wireTap("direct:log.incoming.siri.vm")
-                    .to(siriVmTopic)
-            ;
-
             from(siriVmTopic)
+                    .wireTap("direct:log.incoming.siri.vm")
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .to("direct:register.gtfs.rt.vehicle.positions")
             ;
 
-
-            from("direct:send.to.pubsub.topic.siri.sx")
+            from(siriSxTopic)
                     .wireTap("direct:log.incoming.siri.sx")
                     .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.alerts")
