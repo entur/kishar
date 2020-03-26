@@ -33,3 +33,14 @@ gradlew
 gradlew.bat
 
 /local_config/
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*tfplan*
