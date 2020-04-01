@@ -35,8 +35,9 @@ spec:
               value: Europe/Oslo
             - name: REDIS_HOST
               valueFrom:
-                key: REDIS_HOST
-                name: kishar-redis-configmap
+                configMapKeyRef:
+                  key: REDIS_HOST
+                  name: kishar-redis-configmap
             - name: KISHAR_MQTT_PASSWORD
               valueFrom:
                 secretKeyRef:
