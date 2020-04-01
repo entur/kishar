@@ -45,9 +45,12 @@ configmap:
   pubsub:
     enabled: true
     topic:
-      vm: entur-google-pubsub://kishar-gtfs-rt.siri-vm
-  reddis:
+      et: entur-google-pubsub://anshar.estimated_timetables
+      vm: entur-google-pubsub://anshar.vehicle_monitoring
+      sx: entur-google-pubsub://anshar.alerts
+  redis:
     enabled: false
+    port: 6379
 
 resources:
   cpuLimit: "7"

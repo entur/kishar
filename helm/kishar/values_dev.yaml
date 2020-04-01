@@ -33,9 +33,8 @@ configmap:
       vm: 500
   pubsub:
     project_id: entur-dev-1287
-  reddis:
+  redis:
     enabled: true
-    url: 10.66.12.51:6379
 
 ingress:
   enabled: true

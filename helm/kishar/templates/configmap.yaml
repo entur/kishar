@@ -19,10 +19,12 @@ data:
     kishar.mqtt.username={{ .Values.configmap.mqtt.username }}
 
     kishar.pubsub.enabled={{ .Values.configmap.pubsub.enabled }}
+    kishar.pubsub.topic.et={{ .Values.configmap.pubsub.topic.et }}
     kishar.pubsub.topic.vm={{ .Values.configmap.pubsub.topic.vm }}
+    kishar.pubsub.topic.sx={{ .Values.configmap.pubsub.topic.sx }}
 
-    kishar.reddis.enabled={{ .Values.configmap.reddis.enabled }}
-    kishar.reddis.url={{ .Values.configmap.reddis.url }}
+    kishar.redis.enabled={{ .Values.configmap.redis.enabled }}
+    kishar.redis.port={{ .Values.configmap.redis.port }}
 
     spring.cloud.gcp.pubsub.project-id={{ .Values.configmap.pubsub.project_id }}
 

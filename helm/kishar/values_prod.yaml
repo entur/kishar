@@ -3,9 +3,8 @@ env: production
 configmap:
   pubsub:
     project_id: radon-1287
-  reddis:
+  redis:
     enabled: false
-    url: 10.128.185.163:6379
 
 ingress:
   enabled: true

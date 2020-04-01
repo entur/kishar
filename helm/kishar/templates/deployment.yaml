@@ -33,7 +33,7 @@ spec:
                 -Dfile.encoding=UTF-8
             - name: TZ
               value: Europe/Oslo
-            - name: REDIS_HOST
+            - name: KISHAR_REDIS_HOST
               valueFrom:
                 configMapKeyRef:
                   key: REDIS_HOST
