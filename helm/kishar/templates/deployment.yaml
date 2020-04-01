@@ -33,6 +33,10 @@ spec:
                 -Dfile.encoding=UTF-8
             - name: TZ
               value: Europe/Oslo
+            - name: REDIS_HOST
+              valueFrom:
+                key: REDIS_HOST
+                name: kishar-redis-configmap
             - name: KISHAR_MQTT_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -84,6 +88,9 @@ spec:
             - mountPath: /etc/application-config
               name: application-config
               readOnly: true
+            - mountPath: /etc/application-config-redis
+              name: application-config-redis
+              readOnly: true
       dnsPolicy: ClusterFirst
       imagePullSecrets:
         - name: rutebanken-registry-key
@@ -101,4 +108,8 @@ spec:
             defaultMode: 420
             name: kishar-config
           name: application-config
+        - configMap:
+            defaultMode: 420
+            name: kishar-redis-configmap
+          name: kishar-redis-configmap
 

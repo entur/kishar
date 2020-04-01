@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RedisService {
 
+    public static final String REDIS_HOST = "REDIS_HOST";
+
     enum Type {
         VEHICLE_POSITION("vehiclePositionMap"),
         TRIP_UPDATE("tripUpdateMap"),
@@ -47,13 +49,13 @@ public class RedisService {
 
     RedissonClient redisson;
 
-    public RedisService(@Value("${kishar.reddis.enabled}") boolean reddisEnabled, @Value("${kishar.reddis.url}") String url) {
+    public RedisService(@Value("${kishar.reddis.enabled}") boolean reddisEnabled) {
         this.reddisEnabled = reddisEnabled;
 
         if (reddisEnabled) {
             Config config = new Config();
             config.useReplicatedServers()
-                    .addNodeAddress("redis://" + url);
+                    .addNodeAddress("redis://" + System.getenv(REDIS_HOST) + ":6379");
 
             redisson = Redisson.create(config);
         }

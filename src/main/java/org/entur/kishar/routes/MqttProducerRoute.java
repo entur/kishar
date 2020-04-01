@@ -22,6 +22,7 @@ import static org.entur.kishar.routes.SiriIncomingRoute.DATASOURCE_HEADER_NAME;
 
 @Service
 public class MqttProducerRoute extends RouteBuilder {
+    public static final String KISHAR_MQTT_PASSWORD = "KISHAR_MQTT_PASSWORD";
     private static Logger LOG = LoggerFactory.getLogger(MqttProducerRoute.class);
 
     private static final String clientId = UUID.randomUUID().toString();
@@ -34,9 +35,6 @@ public class MqttProducerRoute extends RouteBuilder {
 
     @Value("${kishar.mqtt.username}")
     private String username;
-
-    @Value("${kishar.mqtt.password}")
-    private String password;
 
     @Value("${kishar.mqtt.retain.data:true}")
     private boolean retain;
@@ -51,7 +49,7 @@ public class MqttProducerRoute extends RouteBuilder {
         MqttConnectOptions connectOptions = new MqttConnectOptions();
         connectOptions.setServerURIs(new String[] {host});
         connectOptions.setUserName(username);
-        connectOptions.setPassword(password.toCharArray());
+        connectOptions.setPassword(System.getenv(KISHAR_MQTT_PASSWORD).toCharArray());
         connectOptions.setMaxInflight(1000);
         connectOptions.setAutomaticReconnect(true);
         return connectOptions;
@@ -62,6 +60,7 @@ public class MqttProducerRoute extends RouteBuilder {
 
 
         if (mqttEnabled) {
+            String password = System.getenv(KISHAR_MQTT_PASSWORD);
 
             LOG.info("Push to MQTT enabled: host: {}, username: {}, password: {}", host, username, password != null ? ""+password.length() + " chars":null);
 
