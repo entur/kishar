@@ -49,7 +49,10 @@ public class MqttProducerRoute extends RouteBuilder {
         MqttConnectOptions connectOptions = new MqttConnectOptions();
         connectOptions.setServerURIs(new String[] {host});
         connectOptions.setUserName(username);
-        connectOptions.setPassword(System.getenv(KISHAR_MQTT_PASSWORD).toCharArray());
+        String password = System.getenv(KISHAR_MQTT_PASSWORD);
+        if (password != null) {
+            connectOptions.setPassword(password.toCharArray());
+        }
         connectOptions.setMaxInflight(1000);
         connectOptions.setAutomaticReconnect(true);
         return connectOptions;
