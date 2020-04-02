@@ -19,9 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.apache.camel.Exchange.LOOP_INDEX;
-import static org.entur.kishar.routes.SiriIncomingRoute.DATASOURCE_HEADER_NAME;
-import static org.entur.kishar.routes.SiriIncomingRoute.LIST_COUNT_HEADER_NAME;
 
 @Service
 public class PubSubRoute extends RouteBuilder {

@@ -18,10 +18,10 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.entur.kishar.routes.SiriIncomingRoute.DATASOURCE_HEADER_NAME;
 
 @Service
 public class MqttProducerRoute extends RouteBuilder {
+    public static final String DATASOURCE_HEADER_NAME = "datasource";
     private static Logger LOG = LoggerFactory.getLogger(MqttProducerRoute.class);
 
     private static final String clientId = UUID.randomUUID().toString();
