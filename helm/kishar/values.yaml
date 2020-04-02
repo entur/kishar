@@ -49,7 +49,7 @@ configmap:
       vm: entur-google-pubsub://anshar.vehicle_monitoring
       sx: entur-google-pubsub://anshar.alerts
     credentials:
-      path: /etc/kishar/credentials.json
+      path: file:///etc/kishar/credentials.json
   redis:
     enabled: false
     port: 6379
