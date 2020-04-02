@@ -48,6 +48,8 @@ configmap:
       et: entur-google-pubsub://anshar.estimated_timetables
       vm: entur-google-pubsub://anshar.vehicle_monitoring
       sx: entur-google-pubsub://anshar.alerts
+    credentials:
+      path: /etc/kishar/credentials.json
   redis:
     enabled: false
     port: 6379
@@ -80,3 +82,10 @@ service:
   http:
     externalPort: 80
     internalPort: 8888
+
+secretMounts:
+  - name: sa-key
+    secretName: ror-kishar-sa-key
+    mountPath: /etc/kishar/credentials.json
+    subPath: credentials.json
+    readOnly: true

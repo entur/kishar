@@ -28,6 +28,8 @@ data:
 
     spring.cloud.gcp.pubsub.project-id={{ .Values.configmap.pubsub.project_id }}
 
+    spring.cloud.gcp.pubsub.credentials.location={{ .Values.configmap.pubsub.credentials.path }}
+
 kind: ConfigMap
 metadata:
   name: {{ template "kishar.name" . }}-config
