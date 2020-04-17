@@ -32,8 +32,8 @@ configmap:
     distance:
       vm: 500
   pubsub:
-    enabled: false
-    project_id: entur-dev-1287
+    enabled: true
+    project_id: carbon-1287
   redis:
     enabled: true
 
