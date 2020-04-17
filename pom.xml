@@ -148,6 +148,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.entur</groupId>
+            <artifactId>siri-protobuf</artifactId>
+            <version>0.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-jetty9</artifactId>
             <version>${camel-version}</version>
@@ -384,5 +390,25 @@
             </build>
         </profile>
     </profiles>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Repository Switchboard</name>
+            <layout>default</layout>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
+            <id>conveyal</id>
+            <name>conveyal</name>
+            <layout>default</layout>
+            <url>https://maven.conveyal.com</url>
+        </repository>
+        <repository>
+            <id>github</id>
+            <name>Entur Github package repo</name>
+            <url>https://maven.pkg.github.com/entur/siri-protobuf-mapper</url>
+        </repository>
+    </repositories>
 
 </project>

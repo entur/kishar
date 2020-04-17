@@ -1,8 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
-import com.google.transit.realtime.GtfsRealtime;
-import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.redisson.Redisson;
 import org.redisson.api.LocalCachedMapOptions;
 import org.redisson.api.RLocalCachedMap;
@@ -15,8 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -41,8 +37,6 @@ public class RedisService {
     }
 
     private static Logger LOG = LoggerFactory.getLogger(RedisService.class);
-
-    private final static String VEHICLE_POSITION_MAP = "vehiclePositionMap";
     private final boolean reddisEnabled;
 
     RedissonClient redisson;

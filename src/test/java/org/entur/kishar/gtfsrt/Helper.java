@@ -1,6 +1,6 @@
 package org.entur.kishar.gtfsrt;
 
-import uk.org.siri.siri20.*;
+import uk.org.siri.www.siri.*;
 
 public class Helper {
 
@@ -8,24 +8,31 @@ public class Helper {
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
 
-    static PtSituationElement createPtSituationElement(String datasource) {
-        PtSituationElement ptSituation = new PtSituationElement();
+    static PtSituationElementStructure createPtSituationElement(String datasource) {
 
-        SituationNumber situationNumber = new SituationNumber();
-        situationNumber.setValue(situationNumberValue);
-        ptSituation.setSituationNumber(situationNumber);
+        EntryQualifierStructure situationNumber = EntryQualifierStructure.newBuilder()
+                .setValue(situationNumberValue)
+                .build();
 
-        DefaultedTextStructure summary = new DefaultedTextStructure();
-        summary.setValue(summaryValue);
-        ptSituation.getSummaries().add(summary);
+        DefaultedTextStructure summary = DefaultedTextStructure.newBuilder()
+                .setValue(summaryValue)
+                .build();
 
-        DefaultedTextStructure description = new DefaultedTextStructure();
-        description.setValue(descriptionValue);
-        ptSituation.getDescriptions().add(description);
+        DefaultedTextStructure description = DefaultedTextStructure.newBuilder()
+                .setValue(descriptionValue)
+                .build();
 
-        RequestorRef requestorRef = new RequestorRef();
-        requestorRef.setValue(datasource);
-        ptSituation.setParticipantRef(requestorRef);
+        ParticipantRefStructure requestorRef = ParticipantRefStructure.newBuilder()
+                .setValue(datasource)
+                .build();
+
+        PtSituationElementStructure ptSituation = PtSituationElementStructure.newBuilder()
+                .setSituationNumber(situationNumber)
+                .addSummary(summary)
+                .addDescription(description)
+                .setParticipantRef(requestorRef)
+                .build();
+
         return ptSituation;
     }
 
@@ -34,18 +41,19 @@ public class Helper {
             return null;
         }
 
-        FramedVehicleJourneyRefStructure framedVehicleJourney = new FramedVehicleJourneyRefStructure();
-        framedVehicleJourney.setDatedVehicleJourneyRef(datedVehicleJourneyRef);
+        DataFrameRefStructure dataFrameRef = DataFrameRefStructure.newBuilder()
+                .setValue("2018-12-12")
+                .build();
 
-        DataFrameRefStructure dataFrameRef = new DataFrameRefStructure();
-        dataFrameRef.setValue("2018-12-12");
-        framedVehicleJourney.setDataFrameRef(dataFrameRef);
-        return framedVehicleJourney;
+        return FramedVehicleJourneyRefStructure.newBuilder()
+                .setDatedVehicleJourneyRef(datedVehicleJourneyRef)
+                .setDataFrameRef(dataFrameRef)
+                .build();
     }
 
-    static LineRef createLineRef(String lineRefValue) {
-        LineRef line = new LineRef();
-        line.setValue(lineRefValue);
-        return line;
+    static LineRefStructure createLineRef(String lineRefValue) {
+        return LineRefStructure.newBuilder()
+                .setValue(lineRefValue)
+                .build();
     }
 }

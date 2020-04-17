@@ -1,21 +1,16 @@
 package org.entur.kishar.routes;
 
 
-import com.google.transit.realtime.GtfsRealtime;
-import org.apache.camel.Exchange;
-import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
-import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import uk.org.siri.siri20.Siri;
+import uk.org.siri.www.siri.SiriType;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -52,28 +47,26 @@ public class PubSubRoute extends RouteBuilder {
 
             from(siriEtTopic)
                     .wireTap("direct:log.incoming.siri.et")
-                    .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .to("direct:register.gtfs.rt.trip.updates")
             ;
 
             from(siriVmTopic)
                     .wireTap("direct:log.incoming.siri.vm")
-                    .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .to("direct:register.gtfs.rt.vehicle.positions")
             ;
 
             from(siriSxTopic)
                     .wireTap("direct:log.incoming.siri.sx")
-                    .split().tokenizeXML("Siri").streaming()
                     .to("direct:parse.siri.to.gtfs.rt.alerts")
                     .to("direct:register.gtfs.rt.alerts")
             ;
 
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
-                        final Siri siri = p.getIn().getBody(Siri.class);
+                        final byte[] data = (byte[]) p.getIn().getBody();
+                        final SiriType siri = SiriType.parseFrom(data);
                         Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
                         p.getOut().setBody(body);
                     })
@@ -88,7 +81,8 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final Siri siri = p.getIn().getBody(Siri.class);
+                        final byte[] data = (byte[]) p.getIn().getBody();
+                        final SiriType siri = SiriType.parseFrom(data);
                         Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
                         p.getOut().setBody(body);
                     })
@@ -103,7 +97,8 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
-                        final Siri siri = p.getIn().getBody(Siri.class);
+                        final byte[] data = (byte[]) p.getIn().getBody();
+                        final SiriType siri = SiriType.parseFrom(data);
                         Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
                         p.getOut().setBody(body);
                     })

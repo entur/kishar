@@ -1,13 +1,11 @@
 package org.entur.kishar.gtfsrt;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
-import org.junit.Before;
 import org.junit.Test;
-import uk.org.siri.siri20.ServiceDelivery;
-import uk.org.siri.siri20.Siri;
-import uk.org.siri.siri20.SituationExchangeDeliveryStructure;
+import uk.org.siri.www.siri.ServiceDeliveryType;
+import uk.org.siri.www.siri.SiriType;
+import uk.org.siri.www.siri.SituationExchangeDeliveryStructure;
 
 import java.io.IOException;
 import java.util.List;
@@ -22,14 +20,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testSituationToAlert() throws IOException {
-
-        Siri siri = new Siri();
-        ServiceDelivery serviceDelivery = new ServiceDelivery();
-        SituationExchangeDeliveryStructure sxDelivery = new SituationExchangeDeliveryStructure();
-        sxDelivery.setSituations(new SituationExchangeDeliveryStructure.Situations());
-        sxDelivery.getSituations().getPtSituationElements().add(createPtSituationElement("RUT"));
-        serviceDelivery.getSituationExchangeDeliveries().add(sxDelivery);
-        siri.setServiceDelivery(serviceDelivery);
+        SiriType siri = createSiriSx("RUT");
 
         Map<byte[], byte[]> redisMap = getRedisMap(rtService, siri);
 
@@ -54,7 +45,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertAlert(alert);
     }
 
-    private Map<byte[], byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, Siri siri) {
+    private Map<byte[], byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
         Map<byte[], byte[]> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
         Map<byte[], byte[]> redisMap = Maps.newHashMap();
         for (byte[] key : gtfsRt.keySet()) {
@@ -69,13 +60,8 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     @Test
     public void testSituationToAlertWithDatasourceFiltering() throws IOException {
 
-        Siri siri = new Siri();
-        ServiceDelivery serviceDelivery = new ServiceDelivery();
-        SituationExchangeDeliveryStructure sxDelivery = new SituationExchangeDeliveryStructure();
-        sxDelivery.setSituations(new SituationExchangeDeliveryStructure.Situations());
-        sxDelivery.getSituations().getPtSituationElements().add(createPtSituationElement("BNR"));
-        serviceDelivery.getSituationExchangeDeliveries().add(sxDelivery);
-        siri.setServiceDelivery(serviceDelivery);
+        String datasource = "BNR";
+        SiriType siri = createSiriSx(datasource);
 
         Map<byte[], byte[]> redisMap = getRedisMap(rtService, siri);
 
@@ -92,17 +78,30 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testMappingOfSiriSx() {
+        String datasource = "RUT";
 
-        Siri siri = new Siri();
-        ServiceDelivery serviceDelivery = new ServiceDelivery();
-        SituationExchangeDeliveryStructure sxDelivery = new SituationExchangeDeliveryStructure();
-        sxDelivery.setSituations(new SituationExchangeDeliveryStructure.Situations());
-        sxDelivery.getSituations().getPtSituationElements().add(createPtSituationElement("RUT"));
-        serviceDelivery.getSituationExchangeDeliveries().add(sxDelivery);
-        siri.setServiceDelivery(serviceDelivery);
+        SiriType siri = createSiriSx(datasource);
 
         Map<byte[], byte[]> result = rtService.convertSiriSxToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
+    }
+
+    private SiriType createSiriSx(String datasource) {
+        SituationExchangeDeliveryStructure.SituationsType situations = SituationExchangeDeliveryStructure.SituationsType.newBuilder()
+                .addPtSituationElement(createPtSituationElement(datasource))
+                .build();
+
+        SituationExchangeDeliveryStructure sxDelivery = SituationExchangeDeliveryStructure.newBuilder()
+                .setSituations(situations)
+                .build();
+
+        ServiceDeliveryType serviceDelivery = ServiceDeliveryType.newBuilder()
+                .addSituationExchangeDelivery(sxDelivery)
+                .build();
+
+        return SiriType.newBuilder()
+                .setServiceDelivery(serviceDelivery)
+                .build();
     }
 }

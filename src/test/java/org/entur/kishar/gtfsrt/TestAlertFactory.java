@@ -3,7 +3,7 @@ package org.entur.kishar.gtfsrt;
 import com.google.transit.realtime.GtfsRealtime;
 import org.junit.Before;
 import org.junit.Test;
-import uk.org.siri.siri20.PtSituationElement;
+import uk.org.siri.www.siri.PtSituationElementStructure;
 
 import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertNotNull;
@@ -20,7 +20,7 @@ public class TestAlertFactory {
     @Test
     public void testCreateAlertFromSituation() {
 
-        PtSituationElement ptSituation = createPtSituationElement("RUT");
+        PtSituationElementStructure ptSituation = createPtSituationElement("RUT");
 
 
         GtfsRealtime.Alert.Builder alertBuilder = alertFactory.createAlertFromSituation(ptSituation);

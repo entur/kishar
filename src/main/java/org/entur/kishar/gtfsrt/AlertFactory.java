@@ -21,7 +21,7 @@ import com.google.transit.realtime.GtfsRealtime.Alert.Effect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import uk.org.siri.siri20.*;
+import uk.org.siri.www.siri.*;
 
 import java.util.List;
 
@@ -33,7 +33,7 @@ public class AlertFactory {
     private static final Logger _log = LoggerFactory.getLogger(AlertFactory.class);
     
     public Alert.Builder createAlertFromSituation(
-            PtSituationElement ptSituation) {
+            PtSituationElementStructure ptSituation) {
 
         Alert.Builder alert = Alert.newBuilder();
 
@@ -46,31 +46,31 @@ public class AlertFactory {
         return alert;
     }
 
-    private void handleDescriptions(PtSituationElement ptSituation,
+    private void handleDescriptions(PtSituationElementStructure ptSituation,
                                     Alert.Builder serviceAlert) {
 
-        TranslatedString summary = translation(ptSituation.getSummaries());
+        TranslatedString summary = translation(ptSituation.getSummaryList());
         if (summary != null) {
             serviceAlert.setHeaderText(summary);
         }
 
-        TranslatedString description = translation(ptSituation.getDescriptions());
+        TranslatedString description = translation(ptSituation.getDescriptionList());
         if (description != null) {
             serviceAlert.setDescriptionText(description);
         }
     }
 
-    private void handleOtherFields(PtSituationElement ptSituation,
+    private void handleOtherFields(PtSituationElementStructure ptSituation,
                                    Alert.Builder serviceAlert) {
 
         HalfOpenTimestampOutputRangeStructure window = ptSituation.getPublicationWindow();
         if (window != null) {
             TimeRange.Builder range = TimeRange.newBuilder();
             if (window.getStartTime() != null) {
-                range.setStart(window.getStartTime().toEpochSecond());
+                range.setStart(window.getStartTime().getSeconds());
             }
             if (window.getEndTime() != null) {
-                range.setEnd(window.getEndTime().toEpochSecond());
+                range.setEnd(window.getEndTime().getSeconds());
             }
             if (range.hasStart() || range.hasEnd()) {
                 serviceAlert.addActivePeriod(range);
@@ -78,7 +78,7 @@ public class AlertFactory {
         }
     }
 
-    private void handlReasons(PtSituationElement ptSituation,
+    private void handlReasons(PtSituationElementStructure ptSituation,
                               Alert.Builder serviceAlert) {
 
         Cause cause = getReasonAsCause(ptSituation);
@@ -87,19 +87,19 @@ public class AlertFactory {
         }
     }
 
-    private Cause getReasonAsCause(PtSituationElement ptSituation) {
+    private Cause getReasonAsCause(PtSituationElementStructure ptSituation) {
         if (ptSituation.getEnvironmentReason() != null) {
             return Cause.WEATHER;
         }
         if (ptSituation.getEquipmentReason() != null) {
             switch (ptSituation.getEquipmentReason()) {
-                case CONSTRUCTION_WORK:
+                case EQUIPMENT_REASON_ENUMERATION_CONSTRUCTION_WORK:
                     return Cause.CONSTRUCTION;
-                case CLOSED_FOR_MAINTENANCE:
-                case MAINTENANCE_WORK:
-                case EMERGENCY_ENGINEERING_WORK:
-                case LATE_FINISH_TO_ENGINEERING_WORK:
-                case REPAIR_WORK:
+                case EQUIPMENT_REASON_ENUMERATION_CLOSED_FOR_MAINTENANCE:
+                case EQUIPMENT_REASON_ENUMERATION_MAINTENANCE_WORK:
+                case EQUIPMENT_REASON_ENUMERATION_EMERGENCY_ENGINEERING_WORK:
+                case EQUIPMENT_REASON_ENUMERATION_LATE_FINISH_TO_ENGINEERING_WORK:
+                case EQUIPMENT_REASON_ENUMERATION_REPAIR_WORK:
                     return Cause.MAINTENANCE;
                 default:
                     return Cause.TECHNICAL_PROBLEM;
@@ -107,8 +107,8 @@ public class AlertFactory {
         }
         if (ptSituation.getPersonnelReason() != null) {
             switch (ptSituation.getPersonnelReason()) {
-                case INDUSTRIAL_ACTION:
-                case UNOFFICIAL_INDUSTRIAL_ACTION:
+                case PERSONNEL_REASON_ENUMERATION_INDUSTRIAL_ACTION:
+                case PERSONNEL_REASON_ENUMERATION_UNOFFICIAL_INDUSTRIAL_ACTION:
                     return Cause.STRIKE;
             }
             return Cause.OTHER_CAUSE;
@@ -119,20 +119,20 @@ public class AlertFactory {
          */
         if (ptSituation.getMiscellaneousReason() != null) {
             switch (ptSituation.getMiscellaneousReason()) {
-                case ACCIDENT:
-                case COLLISION:
+                case MISCELLANEOUS_REASON_ENUMERATION_ACCIDENT:
+                case MISCELLANEOUS_REASON_ENUMERATION_COLLISION:
                     return Cause.ACCIDENT;
-                case DEMONSTRATION:
-                case MARCH:
+                case MISCELLANEOUS_REASON_ENUMERATION_DEMONSTRATION:
+                case MISCELLANEOUS_REASON_ENUMERATION_MARCH:
                     return Cause.DEMONSTRATION;
-                case PERSON_ILL_ON_VEHICLE:
-                case FATALITY:
+                case MISCELLANEOUS_REASON_ENUMERATION_PERSON_ILL_ON_VEHICLE:
+                case MISCELLANEOUS_REASON_ENUMERATION_FATALITY:
                     return Cause.MEDICAL_EMERGENCY;
-                case POLICE_REQUEST:
-                case BOMB_ALERT:
-                case CIVIL_EMERGENCY:
-                case EMERGENCY_SERVICES:
-                case EMERGENCY_SERVICES_CALL:
+                case MISCELLANEOUS_REASON_ENUMERATION_POLICE_REQUEST:
+                case MISCELLANEOUS_REASON_ENUMERATION_BOMB_ALERT:
+                case MISCELLANEOUS_REASON_ENUMERATION_CIVIL_EMERGENCY:
+                case MISCELLANEOUS_REASON_ENUMERATION_EMERGENCY_SERVICES:
+                case MISCELLANEOUS_REASON_ENUMERATION_EMERGENCY_SERVICES_CALL:
                     return Cause.POLICE_ACTIVITY;
             }
         }
@@ -144,7 +144,7 @@ public class AlertFactory {
      * Affects
      ****/
 
-    private void handleAffects(PtSituationElement ptSituation,
+    private void handleAffects(PtSituationElementStructure ptSituation,
                                Alert.Builder serviceAlert) {
 
         AffectsScopeStructure affectsStructure = ptSituation.getAffects();
@@ -153,12 +153,12 @@ public class AlertFactory {
             return;
         }
 
-        AffectsScopeStructure.Operators operators = affectsStructure.getOperators();
+        AffectsScopeStructure.OperatorsType operators = affectsStructure.getOperators();
 
         if (operators != null
-                && !operators.getAffectedOperators().isEmpty()) {
+                && operators.getAffectedOperatorCount() > 0) {
 
-            for (AffectedOperatorStructure operator : operators.getAffectedOperators()) {
+            for (AffectedOperatorStructure operator : operators.getAffectedOperatorList()) {
                 OperatorRefStructure operatorRef = operator.getOperatorRef();
                 if (operatorRef == null || operatorRef.getValue() == null) {
                     continue;
@@ -170,13 +170,13 @@ public class AlertFactory {
             }
         }
 
-        AffectsScopeStructure.StopPoints stopPoints = affectsStructure.getStopPoints();
+        AffectsScopeStructure.StopPointsType stopPoints = affectsStructure.getStopPoints();
 
         if (stopPoints != null
-                && !stopPoints.getAffectedStopPoints().isEmpty()) {
+                && stopPoints.getAffectedStopPointCount() > 0) {
 
-            for (AffectedStopPointStructure stopPoint : stopPoints.getAffectedStopPoints()) {
-                StopPointRef stopRef = stopPoint.getStopPointRef();
+            for (AffectedStopPointStructure stopPoint : stopPoints.getAffectedStopPointList()) {
+                StopPointRefStructure stopRef = stopPoint.getStopPointRef();
                 if (stopRef == null || stopRef.getValue() == null) {
                     continue;
                 }
@@ -187,11 +187,11 @@ public class AlertFactory {
             }
         }
 
-        AffectsScopeStructure.VehicleJourneys vjs = affectsStructure.getVehicleJourneys();
+        AffectsScopeStructure.VehicleJourneysType vjs = affectsStructure.getVehicleJourneys();
         if (vjs != null
-                && !vjs.getAffectedVehicleJourneies().isEmpty()) {
+                && vjs.getAffectedVehicleJourneyCount() > 0) {
 
-            for (AffectedVehicleJourneyStructure vj : vjs.getAffectedVehicleJourneies()) {
+            for (AffectedVehicleJourneyStructure vj : vjs.getAffectedVehicleJourneyList()) {
 
                 EntitySelector.Builder selector = EntitySelector.newBuilder();
 
@@ -200,30 +200,30 @@ public class AlertFactory {
                     selector.setRouteId(routeId);
                 }
 
-                List<VehicleJourneyRef> tripRefs = vj.getVehicleJourneyReves();
-                AffectedVehicleJourneyStructure.Calls stopRefs = vj.getCalls();
+                List<VehicleJourneyRefStructure> tripRefs = vj.getVehicleJourneyRefList();
+                AffectedVehicleJourneyStructure.CallsType stopRefs = vj.getCalls();
 
                 boolean hasTripRefs = !tripRefs.isEmpty();
-                boolean hasStopRefs = stopRefs != null && !stopRefs.getCalls().isEmpty();
+                boolean hasStopRefs = stopRefs != null && stopRefs.getCallCount() > 0;
 
                 if (!(hasTripRefs || hasStopRefs)) {
                     if (selector.hasRouteId()) {
                         serviceAlert.addInformedEntity(selector);
                     }
                 } else if (hasTripRefs && hasStopRefs) {
-                    for (VehicleJourneyRef vjRef : vj.getVehicleJourneyReves()) {
+                    for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRefList()) {
                         String tripId = (vjRef.getValue());
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
                         tripDescriptor.setTripId(tripId);
                         selector.setTrip(tripDescriptor);
-                        for (AffectedCallStructure call : stopRefs.getCalls()) {
+                        for (AffectedCallStructure call : stopRefs.getCallList()) {
                             String stopId = (call.getStopPointRef().getValue());
                             selector.setStopId(stopId);
                             serviceAlert.addInformedEntity(selector);
                         }
                     }
                 } else if (hasTripRefs) {
-                    for (VehicleJourneyRef vjRef : vj.getVehicleJourneyReves()) {
+                    for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRefList()) {
                         String tripId = (vjRef.getValue());
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
                         tripDescriptor.setTripId(tripId);
@@ -231,7 +231,7 @@ public class AlertFactory {
                         serviceAlert.addInformedEntity(selector);
                     }
                 } else {
-                    for (AffectedCallStructure call : stopRefs.getCalls()) {
+                    for (AffectedCallStructure call : stopRefs.getCallList()) {
                         String stopId = (call.getStopPointRef().getValue());
                         selector.setStopId(stopId);
                         serviceAlert.addInformedEntity(selector);
@@ -241,18 +241,18 @@ public class AlertFactory {
         }
     }
 
-    private void handleConsequences(PtSituationElement ptSituation,
+    private void handleConsequences(PtSituationElementStructure ptSituation,
                                     Alert.Builder serviceAlert) {
 
         PtConsequencesStructure consequences = ptSituation.getConsequences();
 
-        if (consequences == null || consequences.getConsequences() == null) {
+        if (consequences == null || consequences.getConsequenceCount() == 0) {
             return;
         }
 
-        for (PtConsequenceStructure consequence : consequences.getConsequences()) {
-            if (consequence.getConditions() != null) {
-                serviceAlert.setEffect(getConditionAsEffect(consequence.getConditions()));
+        for (PtConsequenceStructure consequence : consequences.getConsequenceList()) {
+            if (consequence.getConditionCount() > 0) {
+                serviceAlert.setEffect(getConditionAsEffect(consequence.getConditionList()));
             }
         }
     }
@@ -262,41 +262,41 @@ public class AlertFactory {
 
             switch (condition) {
 
-                case CANCELLED:
-                case NO_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_CANCELLED:
+                case SERVICE_CONDITION_ENUMERATION_NO_SERVICE:
                     return Effect.NO_SERVICE;
 
-                case DELAYED:
+                case SERVICE_CONDITION_ENUMERATION_DELAYED:
                     return Effect.SIGNIFICANT_DELAYS;
 
-                case DIVERTED:
+                case SERVICE_CONDITION_ENUMERATION_DIVERTED:
                     return Effect.DETOUR;
 
-                case ADDITIONAL_SERVICE:
-                case EXTENDED_SERVICE:
-                case SHUTTLE_SERVICE:
-                case SPECIAL_SERVICE:
-                case REPLACEMENT_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_ADDITIONAL_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_EXTENDED_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_SHUTTLE_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_SPECIAL_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_REPLACEMENT_SERVICE:
                     return Effect.ADDITIONAL_SERVICE;
 
-                case DISRUPTED:
-                case INTERMITTENT_SERVICE:
-                case SHORT_FORMED_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_DISRUPTED:
+                case SERVICE_CONDITION_ENUMERATION_INTERMITTENT_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_SHORT_FORMED_SERVICE:
                     return Effect.REDUCED_SERVICE;
 
-                case ALTERED:
-                case ARRIVES_EARLY:
-                case REPLACEMENT_TRANSPORT:
-                case SPLITTING_TRAIN:
+                case SERVICE_CONDITION_ENUMERATION_ALTERED:
+                case SERVICE_CONDITION_ENUMERATION_ARRIVES_EARLY:
+                case SERVICE_CONDITION_ENUMERATION_REPLACEMENT_TRANSPORT:
+                case SERVICE_CONDITION_ENUMERATION_SPLITTING_TRAIN:
                     return Effect.MODIFIED_SERVICE;
 
-                case ON_TIME:
-                case FULL_LENGTH_SERVICE:
-                case NORMAL_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_ON_TIME:
+                case SERVICE_CONDITION_ENUMERATION_FULL_LENGTH_SERVICE:
+                case SERVICE_CONDITION_ENUMERATION_NORMAL_SERVICE:
                     return Effect.OTHER_EFFECT;
 
-                case UNDEFINED_SERVICE_INFORMATION:
-                case UNKNOWN:
+                case SERVICE_CONDITION_ENUMERATION_UNDEFINED_SERVICE_INFORMATION:
+                case SERVICE_CONDITION_ENUMERATION_UNKNOWN:
                     return Effect.UNKNOWN_EFFECT;
 
             }

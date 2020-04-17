@@ -1,7 +1,6 @@
 package org.entur.kishar.gtfsrt.helpers;
 
 import com.google.transit.realtime.GtfsRealtime;
-import uk.org.siri.siri20.DefaultedTextStructure;
 
 import java.util.List;
 
@@ -17,13 +16,13 @@ public class GtfsRealtimeLibrary {
         return feedMessageBuilder;
     }
 
-    public static GtfsRealtime.TranslatedString translation(List<DefaultedTextStructure> textStructures) {
+    public static GtfsRealtime.TranslatedString translation(List<uk.org.siri.www.siri.DefaultedTextStructure> textStructures) {
         if (textStructures == null) {
             return null;
         }
 
         if (textStructures.size() >= 1) {
-            DefaultedTextStructure text = textStructures.get(0);
+            uk.org.siri.www.siri.DefaultedTextStructure text = textStructures.get(0);
             String value = text.getValue();
             if (value == null) {
                 return null;
@@ -34,7 +33,7 @@ public class GtfsRealtimeLibrary {
             GtfsRealtime.TranslatedString.Translation.Builder translation = GtfsRealtime.TranslatedString.Translation.newBuilder();
             translation.setText(value);
             if (text.getLang() != null) {
-                translation.setLanguage(text.getLang());
+                translation.setLanguage(text.getLang().name());
             }
 
             GtfsRealtime.TranslatedString.Builder tsBuilder = GtfsRealtime.TranslatedString.newBuilder();
