@@ -49,7 +49,7 @@ configmap:
       vm: entur-google-pubsub://protobuf.vehicle_monitoring
       sx: entur-google-pubsub://protobuf.situation_exchange
     credentials:
-      path: file:///etc/kishar/credentials123.json
+      path: file:///etc/kishar/credentials.json
   redis:
     enabled: true
     port: 6379
