@@ -14,6 +14,8 @@
  */
 package org.entur.kishar.gtfsrt.helpers;
 
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import org.entur.kishar.gtfsrt.AlertData;
 import uk.org.siri.siri20.HalfOpenTimestampOutputRangeStructure;
 import uk.org.siri.siri20.PtSituationElement;
@@ -84,6 +86,25 @@ public class SiriLibrary {
             }
 
             return publicationWindow == null && (periods == null || periods.isEmpty());
+        }
+    }
+
+    public static Timestamp getCurrentTime() {
+        long millis = System.currentTimeMillis();
+        Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
+                .setNanos((int) ((millis % 1000) * 1000000)).build();
+        return timestamp;
+    }
+
+    public static Timestamp getLatestTimestamp(Timestamp t1, Timestamp t2) {
+        if (t1 == null) {
+            return t2;
+        } else if (t2 == null) {
+            return t1;
+        } else if (Timestamps.compare(t1, t2) < 0) {
+            return t2;
+        } else {
+            return t1;
         }
     }
 }

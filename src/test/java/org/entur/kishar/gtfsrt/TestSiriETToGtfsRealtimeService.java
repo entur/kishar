@@ -6,6 +6,8 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.kishar.gtfsrt.domain.GtfsRtData;
+import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.junit.Test;
 import uk.org.siri.www.siri.*;
 
@@ -68,10 +70,10 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     private Map<byte[], byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
-        Map<byte[], byte[]> gtfsRt = rtService.convertSiriEtToGtfsRt(siri);
+        Map<byte[], GtfsRtData> gtfsRt = rtService.convertSiriEtToGtfsRt(siri);
         Map<byte[], byte[]> redisMap = Maps.newHashMap();
         for (byte[] key : gtfsRt.keySet()) {
-            byte[] data = gtfsRt.get(key);
+            byte[] data = gtfsRt.get(key).getData();
             byte[] dataInBytes = new byte[data.length + 16];
             System.arraycopy(data, 0, dataInBytes, 16, data.length);
             redisMap.put(key, dataInBytes);
@@ -326,7 +328,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         SiriType et = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, delayPerStop), datedVehicleJourneyRef, datasource);
 
-        Map<byte[], byte[]> result = rtService.convertSiriEtToGtfsRt(et);
+        Map<byte[], GtfsRtData> result = rtService.convertSiriEtToGtfsRt(et);
 
         assertFalse(result.isEmpty());
     }
@@ -368,7 +370,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     private List<? extends EstimatedCallStructure> createEstimatedCalls(int stopCount, int addedDelayPerStop) {
         List<EstimatedCallStructure> calls = new ArrayList<>();
-        Timestamp startTime = Timestamp.getDefaultInstance();
+        Timestamp startTime = SiriLibrary.getCurrentTime();
 
         for (int i = 0; i < stopCount; i++) {
             StopPointRefStructure stopPointRef = StopPointRefStructure.newBuilder()

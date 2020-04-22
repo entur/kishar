@@ -3,6 +3,7 @@ package org.entur.kishar.routes;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
+import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,21 +62,25 @@ public class PubSubRoute extends RouteBuilder {
                     .wireTap("direct:log.incoming.siri.sx")
                     .to("direct:parse.siri.to.gtfs.rt.alerts")
                     .to("direct:register.gtfs.rt.alerts")
+                    .process(p -> {
+                    })
             ;
 
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
                         final SiriType siri = SiriType.parseFrom(data);
-                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
+                        Map<byte[], GtfsRtData> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
                         p.getOut().setBody(body);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from ("direct:register.gtfs.rt.trip.updates")
                     .process( p -> {
-                        final Map<byte[], byte[]> tripUpdate = p.getIn().getBody(Map.class);
+                        final Map<byte[], GtfsRtData> tripUpdate = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtTripUpdates(tripUpdate);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
@@ -83,15 +88,17 @@ public class PubSubRoute extends RouteBuilder {
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
                         final SiriType siri = SiriType.parseFrom(data);
-                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
+                        Map<byte[], GtfsRtData> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
                         p.getOut().setBody(body);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from ("direct:register.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final Map<byte[], byte[]> vehiclePosition = p.getIn().getBody(Map.class);
+                        final Map<byte[], GtfsRtData> vehiclePosition = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
@@ -99,33 +106,38 @@ public class PubSubRoute extends RouteBuilder {
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
                         final SiriType siri = SiriType.parseFrom(data);
-                        Map<byte[], byte[]> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
+                        Map<byte[], GtfsRtData> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
                         p.getOut().setBody(body);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from ("direct:register.gtfs.rt.alerts")
                     .process( p -> {
-                        final Map<byte[], byte[]> alert = p.getIn().getBody(Map.class);
+                        final Map<byte[], GtfsRtData> alert = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtAlerts(alert);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from("direct:log.incoming.siri.et")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_ET", 1, false);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from("direct:log.incoming.siri.vm")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_VM", 1, false);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
             from("direct:log.incoming.siri.sx")
                     .process( p -> {
                         metrics.registerIncomingEntity("SIRI_SX", 1, false);
+                        p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
         }

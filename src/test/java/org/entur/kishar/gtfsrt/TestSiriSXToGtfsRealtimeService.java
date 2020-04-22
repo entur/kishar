@@ -2,6 +2,7 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.junit.Test;
 import uk.org.siri.www.siri.ServiceDeliveryType;
 import uk.org.siri.www.siri.SiriType;
@@ -46,10 +47,10 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     private Map<byte[], byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
-        Map<byte[], byte[]> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
+        Map<byte[], GtfsRtData> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
         Map<byte[], byte[]> redisMap = Maps.newHashMap();
         for (byte[] key : gtfsRt.keySet()) {
-            byte[] data = gtfsRt.get(key);
+            byte[] data = gtfsRt.get(key).getData();
             byte[] dataInBytes = new byte[data.length + 16];
             System.arraycopy(data, 0, dataInBytes, 16, data.length);
             redisMap.put(key, dataInBytes);
@@ -82,7 +83,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         SiriType siri = createSiriSx(datasource);
 
-        Map<byte[], byte[]> result = rtService.convertSiriSxToGtfsRt(siri);
+        Map<byte[], GtfsRtData> result = rtService.convertSiriSxToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }

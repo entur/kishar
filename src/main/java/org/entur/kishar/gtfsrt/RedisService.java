@@ -1,6 +1,7 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
+import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.redisson.Redisson;
 import org.redisson.api.LocalCachedMapOptions;
 import org.redisson.api.RLocalCachedMap;
@@ -54,12 +55,16 @@ public class RedisService {
         }
     }
 
-    public void writeGtfsRt(Map<byte[], byte[]> gtfsRt, Type type) {
+    public void writeGtfsRt(Map<byte[], GtfsRtData> gtfsRt, Type type) {
         if (reddisEnabled) {
             RMapCache<byte[], byte[]> gtfsRtMap = redisson.getMapCache(type.getMapIdentifier(), ByteArrayCodec.INSTANCE);
-            gtfsRtMap.putAll(gtfsRt, 5, TimeUnit.MINUTES);
-
-            gtfsRtMap.destroy();
+            for (byte[] key : gtfsRt.keySet()) {
+                GtfsRtData gtfsRtData = gtfsRt.get(key);
+                long timeToLive = gtfsRtData.getTimeToLive().getSeconds();
+                if (timeToLive > 0) {
+                    gtfsRtMap.put(key, gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
+                }
+            }
         }
     }
 
@@ -70,7 +75,6 @@ public class RedisService {
             Set<byte[]> keys = gtfsRtMap.keySet();
             Map<byte[], byte[]> result = gtfsRtMap.getAll(keys);
 
-            gtfsRtMap.destroy();
             return result;
         } else {
             return Maps.newHashMap();

@@ -6,6 +6,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.kishar.gtfsrt.domain.GtfsRtData;
+import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.junit.Test;
 import uk.org.siri.www.siri.*;
 
@@ -76,10 +78,10 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     private Map<byte[], byte[]> getRedisMap(SiriType siri) {
-        Map<byte[], byte[]> gtfsRt = rtService.convertSiriVmToGtfsRt(siri);
+        Map<byte[], GtfsRtData> gtfsRt = rtService.convertSiriVmToGtfsRt(siri);
         Map<byte[], byte[]> redisMap = Maps.newHashMap();
         for (byte[] key : gtfsRt.keySet()) {
-            byte[] data = gtfsRt.get(key);
+            byte[] data = gtfsRt.get(key).getData();
             byte[] dataInBytes = new byte[data.length + 16];
             System.arraycopy(data, 0, dataInBytes, 16, data.length);
             redisMap.put(key, dataInBytes);
@@ -268,7 +270,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<byte[], byte[]> result = rtService.convertSiriVmToGtfsRt(siri);
+        Map<byte[], GtfsRtData> result = rtService.convertSiriVmToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }
@@ -317,8 +319,8 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         VehicleActivityStructure activity = VehicleActivityStructure.newBuilder()
                 .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(Timestamp.getDefaultInstance())
-                .setValidUntilTime(Timestamps.add(Timestamp.getDefaultInstance(), Duration.newBuilder().setSeconds(600).build()))
+                .setRecordedAtTime(SiriLibrary.getCurrentTime())
+                .setValidUntilTime(Timestamps.add(SiriLibrary.getCurrentTime(), Duration.newBuilder().setSeconds(600).build()))
                 .build();
 
         VehicleMonitoringDeliveryStructure vmDelivery = VehicleMonitoringDeliveryStructure.newBuilder()
@@ -369,8 +371,8 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         VehicleActivityStructure activity = VehicleActivityStructure.newBuilder()
                 .setProgressBetweenStops(progress)
                 .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(Timestamp.getDefaultInstance())
-                .setValidUntilTime(Timestamps.add(Timestamp.getDefaultInstance(), Duration.newBuilder().setSeconds(600).build()))
+                .setRecordedAtTime(SiriLibrary.getCurrentTime())
+                .setValidUntilTime(Timestamps.add(SiriLibrary.getCurrentTime(), Duration.newBuilder().setSeconds(600).build()))
                 .build();
 
         VehicleMonitoringDeliveryStructure vmDelivery = VehicleMonitoringDeliveryStructure.newBuilder()
