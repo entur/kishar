@@ -39,4 +39,4 @@ configmap:
 
 ingress:
   enabled: true
-  devIp: 35.195.223.29
+  devIp: 35.205.134.173

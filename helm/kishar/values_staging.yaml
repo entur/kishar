@@ -3,14 +3,14 @@ env: staging
 configmap:
   datasource:
     whitelist:
-      et:
-      vm:
-      sx:
+      et: RUT
+      vm: RUT
+      sx: RUT
   pubsub:
-    project_id: neon-1287
+    project_id: radon-1287
   redis:
     enabled: false
 
 ingress:
   enabled: true
-  stagingIp: 35.195.146.93
+  stagingIp: 35.233.47.68

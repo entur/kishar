@@ -2,10 +2,10 @@ env: production
 
 configmap:
   pubsub:
-    project_id: radon-1287
+    project_id: neon-1287
   redis:
-    enabled: false
+    enabled: true
 
 ingress:
   enabled: true
-  productionIp: 35.187.15.14
+  productionIp:
