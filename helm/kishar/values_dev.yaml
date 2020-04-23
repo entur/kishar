@@ -25,7 +25,7 @@ configmap:
     whitelist:
       et: RUT
       vm: RUT
-      sx: RUT,ENT
+      sx: RUT,ENT,NSB
   close_to_stop:
     percentage:
       vm: 95
