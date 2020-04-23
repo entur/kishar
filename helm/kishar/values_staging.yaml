@@ -7,9 +7,10 @@ configmap:
       vm: RUT
       sx: RUT
   pubsub:
+    enabled: true
     project_id: radon-1287
   redis:
-    enabled: false
+    enabled: true
 
 ingress:
   enabled: true
