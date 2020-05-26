@@ -1,6 +1,11 @@
 env: production
 
 configmap:
+  datasource:
+    whitelist:
+      et: RUT
+      vm: RUT
+      sx: RUT
   pubsub:
     enabled: true
     project_id: neon-1287
