@@ -8,7 +8,7 @@ configmap:
       sx: RUT
   pubsub:
     enabled: true
-    project_id: neon-1287
+    project_id: entur-1287
   redis:
     enabled: true
 

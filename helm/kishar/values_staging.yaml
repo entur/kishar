@@ -8,7 +8,7 @@ configmap:
       sx: RUT
   pubsub:
     enabled: true
-    project_id: radon-1287
+    project_id: entur-test-1287
   redis:
     enabled: true
 
