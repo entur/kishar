@@ -33,7 +33,7 @@ configmap:
       vm: 500
   pubsub:
     enabled: true
-    project_id: entur-dev-1287
+    project_id: carbon-1287
   redis:
     enabled: true
 
