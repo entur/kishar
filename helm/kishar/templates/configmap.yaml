@@ -27,6 +27,7 @@ data:
     kishar.redis.port={{ .Values.configmap.redis.port }}
 
     spring.cloud.gcp.pubsub.project-id={{ .Values.configmap.pubsub.project_id }}
+    entur.pubsub.subscriber.autocreate=false
 
     spring.cloud.gcp.pubsub.credentials.location={{ .Values.configmap.pubsub.credentials.path }}
 
