@@ -45,9 +45,9 @@ configmap:
   pubsub:
     enabled: true
     topic:
-      et: entur-google-pubsub://kishar.protobuf.estimated_timetables
-      vm: entur-google-pubsub://kishar.protobuf.vehicle_monitoring
-      sx: entur-google-pubsub://kishar.protobuf.situation_exchange
+      et: entur-google-pubsub://protobuf.estimated_timetables
+      vm: entur-google-pubsub://protobuf.vehicle_monitoring
+      sx: entur-google-pubsub://protobuf.situation_exchange
     credentials:
       path: file:///etc/kishar/credentials.json
   redis:
