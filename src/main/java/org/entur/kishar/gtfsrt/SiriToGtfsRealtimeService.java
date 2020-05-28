@@ -454,7 +454,7 @@ public class SiriToGtfsRealtimeService {
 
                             Duration timeToLive;
                             if (activity.hasValidUntilTime()) {
-                                timeToLive = Timestamps.between(activity.getValidUntilTime(), SiriLibrary.getCurrentTime());
+                                timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), activity.getValidUntilTime());
                             } else {
                                 timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
                             }
@@ -529,7 +529,7 @@ public class SiriToGtfsRealtimeService {
                                         if (expirationTime == null) {
                                             timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
                                         } else {
-                                            timeToLive = Timestamps.between(expirationTime, SiriLibrary.getCurrentTime());
+                                            timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), expirationTime);
                                         }
 
                                         result.put(new TripUpdateKey(key, estimatedVehicleJourney.getDataSource()).toByteArray(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
@@ -582,7 +582,7 @@ public class SiriToGtfsRealtimeService {
                                 if (endTime == null) {
                                     timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
                                 } else {
-                                    timeToLive = Timestamps.between(endTime, SiriLibrary.getCurrentTime());
+                                    timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), endTime);
                                 }
 
                                 result.put(new AlertKey(key, ptSituationElement.getParticipantRef().getValue()).toByteArray(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
