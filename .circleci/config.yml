@@ -33,6 +33,9 @@ aliases:
       echo 'export CIRCLE_SHA1="$CIRCLE_SHA1"' >> $BASH_ENV
       echo 'export CIRCLE_PROJECT_REPONAME="$CIRCLE_PROJECT_REPONAME"' >> $BASH_ENV
       /tools/trigger_build_v2.sh "entur/kishar-deployment-config.git" "master" "$(git log -1 --pretty=%B)"
+  - &add_ssh_keys:
+    fingerprints:
+      - $SSH_FINGERPRINT
 jobs:
   build:
     docker:
@@ -87,6 +90,7 @@ jobs:
     - run: *GCP-auth
     - run: *docker-login
     - run: *docker-build-and-push
+    - run: *add_ssh_keys
     - run: *post_build
 workflows:
   version: 2
