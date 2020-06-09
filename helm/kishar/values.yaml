@@ -38,7 +38,7 @@ configmap:
     distance:
       vm: 500
   mqtt:
-    enabled: false
+    enabled: true
     host: tcp://vernemq.default:1883
     username: kishar
     password: <password>
