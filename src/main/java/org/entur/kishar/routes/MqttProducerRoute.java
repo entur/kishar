@@ -83,7 +83,7 @@ public class MqttProducerRoute extends RouteBuilder {
 
             from("direct:post.to.paho.client")
                     .to("paho:default/topic?retained=" + retain + "&qos=1&clientId=" + clientId)
-                    .bean(metrics, "registerSentMqttMessage(${header." + DATASOURCE_HEADER_NAME + "})")
+                    .bean(metrics, "registerSentMqttMessage(${header.DATASOURCE}, ${header.DATATYPE})")
                     .to("direct:log.mqtt.traffic");
 
             from("direct:log.mqtt.traffic")
@@ -109,7 +109,7 @@ public class MqttProducerRoute extends RouteBuilder {
                             p.getOut().setHeader("counter", counter.get());
                         }
                     })
-                    .bean(metrics, "registerSentMqttMessage(${header." + DATASOURCE_HEADER_NAME + "})")
+                    .bean(metrics, "registerSentMqttMessage(${header.DATASOURCE}, ${header.DATATYPE})")
                     .choice().when(header("counter").isNotNull())
                         .log("MQTT still disabled - attempted ${header.counter} updates")
                     .endChoice()

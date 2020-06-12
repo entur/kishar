@@ -6,6 +6,7 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.paho.PahoConstants;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
+import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,8 +104,9 @@ public class PubSubRoute extends RouteBuilder {
                     .process( p -> {
                         final Map<byte[], GtfsRtData> vehiclePosition = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
-                        p.getOut().setBody(vehiclePosition.values());
+                        p.getOut().setBody(vehiclePosition.keySet());
                         p.getOut().setHeaders(p.getIn().getHeaders());
+                        p.getOut().setHeader("map", vehiclePosition);
                     })
             ;
 
@@ -148,11 +150,13 @@ public class PubSubRoute extends RouteBuilder {
             ;
 
             from("direct:send.vehicle.position.to.mqtt")
-                    .bean(metrics, "registerReceivedMqttMessage(\"SIRI_VM\")")
                     .choice().when(body().isNotNull())
                     .split(body())
                     .process(p -> {
-                        final GtfsRtData body = p.getIn().getBody(GtfsRtData.class);
+                        final byte[] key = p.getIn().getBody(byte[].class);
+                        VehiclePositionKey mappedKey = VehiclePositionKey.create(key);
+                        Map<byte[], GtfsRtData> map = p.getIn().getHeader("map", Map.class);
+                        final GtfsRtData body = map.get(key);
                         if (body.getData() != null) {
                             GtfsRealtime.FeedEntity feedEntity = GtfsRealtime.FeedEntity.parseFrom(body.getData());
                             if (feedEntity != null && feedEntity.hasVehicle()) {
@@ -162,10 +166,13 @@ public class PubSubRoute extends RouteBuilder {
                                     p.getOut().setBody(vehiclePosition.toByteArray());
                                     p.getOut().setHeaders(p.getIn().getHeaders());
                                     p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
+                                    p.getOut().setHeader("DATASOURCE", mappedKey.getDatasource());
+                                    p.getOut().setHeader("DATATYPE", "SIRI_VM");
                                 }
                             }
                         }
                     })
+                    .bean(metrics, "registerReceivedMqttMessage(${header.DATASOURCE}, ${header.DATATYPE})")
                     .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
                         .to("direct:send.to.mqtt")
                     .endChoice()
