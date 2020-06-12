@@ -159,7 +159,7 @@ public class PubSubRoute extends RouteBuilder {
                                 GtfsRealtime.VehiclePosition vehiclePosition = feedEntity.getVehicle();
                                 String topic = buildTopic(vehiclePosition);
                                 if (topic != null) {
-                                    p.getOut().setBody(vehiclePosition);
+                                    p.getOut().setBody(vehiclePosition.toByteArray());
                                     p.getOut().setHeaders(p.getIn().getHeaders());
                                     p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
                                 }
