@@ -1,7 +1,9 @@
 package org.entur.kishar.routes;
 
 
+import com.google.transit.realtime.GtfsRealtime;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.paho.PahoConstants;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -14,6 +16,8 @@ import uk.org.siri.www.siri.SiriType;
 
 import java.util.Map;
 import java.util.UUID;
+
+import static org.entur.kishar.routes.helpers.MqttHelper.buildTopic;
 
 
 @Service
@@ -56,6 +60,7 @@ public class PubSubRoute extends RouteBuilder {
                     .wireTap("direct:log.incoming.siri.vm")
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .to("direct:register.gtfs.rt.vehicle.positions")
+                    .to("direct:send.vehicle.position.to.mqtt")
             ;
 
             from(siriSxTopic)
@@ -98,6 +103,7 @@ public class PubSubRoute extends RouteBuilder {
                     .process( p -> {
                         final Map<byte[], GtfsRtData> vehiclePosition = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
+                        p.getOut().setBody(vehiclePosition.values());
                         p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
@@ -140,6 +146,31 @@ public class PubSubRoute extends RouteBuilder {
                         p.getOut().setHeaders(p.getIn().getHeaders());
                     })
             ;
+
+            from("direct:send.vehicle.position.to.mqtt")
+                    .bean(metrics, "registerReceivedMqttMessage(\"SIRI_VM\")")
+                    .choice().when(body().isNotNull())
+                    .split(body())
+                    .process(p -> {
+                        final GtfsRtData body = p.getIn().getBody(GtfsRtData.class);
+                        if (body.getData() != null) {
+                            GtfsRealtime.FeedEntity feedEntity = GtfsRealtime.FeedEntity.parseFrom(body.getData());
+                            if (feedEntity != null && feedEntity.hasVehicle()) {
+                                GtfsRealtime.VehiclePosition vehiclePosition = feedEntity.getVehicle();
+                                String topic = buildTopic(vehiclePosition);
+                                if (topic != null) {
+                                    p.getOut().setBody(body);
+                                    p.getOut().setHeaders(p.getIn().getHeaders());
+                                    p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
+                                }
+                            }
+                        }
+                    })
+                    .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
+                    .to("direct:send.to.mqtt")
+                    .endChoice()
+                    .end()
+                    ;
         }
     }
 
