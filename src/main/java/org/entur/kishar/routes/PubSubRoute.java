@@ -159,7 +159,7 @@ public class PubSubRoute extends RouteBuilder {
                                 GtfsRealtime.VehiclePosition vehiclePosition = feedEntity.getVehicle();
                                 String topic = buildTopic(vehiclePosition);
                                 if (topic != null) {
-                                    p.getOut().setBody(body);
+                                    p.getOut().setBody(vehiclePosition);
                                     p.getOut().setHeaders(p.getIn().getHeaders());
                                     p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
                                 }
@@ -167,7 +167,7 @@ public class PubSubRoute extends RouteBuilder {
                         }
                     })
                     .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
-                    .to("direct:send.to.mqtt")
+                        .to("direct:send.to.mqtt")
                     .endChoice()
                     .end()
                     ;
