@@ -60,7 +60,7 @@ public class PubSubRoute extends RouteBuilder {
                     .wireTap("direct:log.incoming.siri.vm")
                     .to("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .to("direct:register.gtfs.rt.vehicle.positions")
-                    .bean("direct:send.vehicle.position.to.mqtt")
+                    .wireTap("direct:send.vehicle.position.to.mqtt")
             ;
 
             from(siriSxTopic)
