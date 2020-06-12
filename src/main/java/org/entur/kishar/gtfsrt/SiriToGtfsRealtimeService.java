@@ -263,6 +263,7 @@ public class SiriToGtfsRealtimeService {
         writeTripUpdates();
         writeVehiclePositions();
         writeAlerts();
+        prometheusMetricsService.registerTotalGtfsRtEntities(tripUpdates.getEntityCount(), vehiclePositions.getEntityCount(), alerts.getEntityCount());
         LOG.info("Wrote output in {} ms: {} alerts, {} vehicle-positions, {} trip-updates",
                 (System.currentTimeMillis()-t1),
                 alerts.getEntityCount(),

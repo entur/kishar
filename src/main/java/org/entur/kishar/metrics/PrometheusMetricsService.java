@@ -16,6 +16,7 @@
 package org.entur.kishar.metrics;
 
 import io.micrometer.core.instrument.ImmutableTag;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -24,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +41,8 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
 
     private final String MQTT_DATA_RECEIVED_COUNTER_NAME = METRICS_PREFIX + "mqtt.received.total";
     private final String MQTT_DATA_SENT_COUNTER_NAME = METRICS_PREFIX + "mqtt.sent.total";
+
+    private final String GTFSRT_ENTITIES_TOTAL = METRICS_PREFIX + "gtfsrt.entitites.total";
 
     public PrometheusMetricsService() {
         super(PrometheusConfig.DEFAULT);
@@ -65,6 +69,26 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
         } else {
             counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment(total);
         }
+    }
+
+    public void registerTotalGtfsRtEntities(int etCount, int vmCount, int sxCount) {
+        for (Meter meter : this.getMeters()) {
+            if (GTFSRT_ENTITIES_TOTAL.equals(meter.getId().getName())) {
+                this.remove(meter);
+            }
+        }
+
+        List<Tag> counterTags = new ArrayList<>();
+        counterTags.add(new ImmutableTag("dataType", "SIRI_ET"));
+        super.gauge(GTFSRT_ENTITIES_TOTAL, counterTags, BigInteger.valueOf(etCount), BigInteger::doubleValue);
+
+        counterTags = new ArrayList<>();
+        counterTags.add(new ImmutableTag("dataType", "SIRI_VM"));
+        super.gauge(GTFSRT_ENTITIES_TOTAL, counterTags, BigInteger.valueOf(vmCount), BigInteger::doubleValue);
+
+        counterTags = new ArrayList<>();
+        counterTags.add(new ImmutableTag("dataType", "SIRI_SX"));
+        super.gauge(GTFSRT_ENTITIES_TOTAL, counterTags, BigInteger.valueOf(sxCount), BigInteger::doubleValue);
     }
 
     public void registerSentMqttMessage(String datasource, String dataType) {
