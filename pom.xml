@@ -152,7 +152,7 @@
         <dependency>
             <groupId>org.entur.helpers</groupId>
             <artifactId>camel-entur-google-pubsub</artifactId>
-            <version>0.0.8-SNAPSHOT</version>
+            <version>1.0.22</version>
         </dependency>
 
         <dependency>
