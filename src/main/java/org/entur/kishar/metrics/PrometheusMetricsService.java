@@ -93,16 +93,16 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
 
     public void registerSentMqttMessage(String datasource, String dataType) {
         List<Tag> counterTags = new ArrayList<>();
-        counterTags.add(new ImmutableTag("datasource", datasource));
-        counterTags.add(new ImmutableTag("dataType", dataType));
+        counterTags.add(new ImmutableTag("datasource", ""+datasource));
+        counterTags.add(new ImmutableTag("dataType", ""+dataType));
 
         counter(MQTT_DATA_SENT_COUNTER_NAME, counterTags).increment();
     }
 
     public void registerReceivedMqttMessage(String datasource, String dataType) {
         List<Tag> counterTags = new ArrayList<>();
-        counterTags.add(new ImmutableTag("datasource", datasource));
-        counterTags.add(new ImmutableTag("dataType", dataType));
+        counterTags.add(new ImmutableTag("datasource", ""+datasource));
+        counterTags.add(new ImmutableTag("dataType", ""+dataType));
 
         counter(MQTT_DATA_RECEIVED_COUNTER_NAME, counterTags).increment();
     }
