@@ -42,7 +42,7 @@ public class RedisService {
 
     RedissonClient redisson;
 
-    public RedisService(@Value("${kishar.redis.enabled}") boolean reddisEnabled, @Value("${kishar.redis.host}") String host, @Value("${kishar.redis.port}") String port) {
+    public RedisService(@Value("${kishar.redis.enabled:false}") boolean reddisEnabled, @Value("${kishar.redis.host:}") String host, @Value("${kishar.redis.port:}") String port) {
         this.reddisEnabled = reddisEnabled;
 
         if (reddisEnabled) {
