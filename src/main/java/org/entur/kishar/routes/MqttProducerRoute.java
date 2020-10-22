@@ -29,13 +29,13 @@ public class MqttProducerRoute extends RouteBuilder {
     @Value("${kishar.mqtt.enabled:false}")
     private boolean mqttEnabled;
 
-    @Value("${kishar.mqtt.host}")
+    @Value("${kishar.mqtt.host:}")
     private String host;
 
-    @Value("${kishar.mqtt.username}")
+    @Value("${kishar.mqtt.username:}")
     private String username;
 
-    @Value("${kishar.mqtt.password}")
+    @Value("${kishar.mqtt.password:}")
     private String password;
 
     @Value("${kishar.mqtt.retain.data:true}")
@@ -49,11 +49,13 @@ public class MqttProducerRoute extends RouteBuilder {
     @Bean
     MqttConnectOptions connectOptions() {
         MqttConnectOptions connectOptions = new MqttConnectOptions();
-        connectOptions.setServerURIs(new String[] {host});
-        connectOptions.setUserName(username);
-        connectOptions.setPassword(password.toCharArray());
-        connectOptions.setMaxInflight(1000);
-        connectOptions.setAutomaticReconnect(true);
+        if (mqttEnabled) {
+            connectOptions.setServerURIs(new String[] {host});
+            connectOptions.setUserName(username);
+            connectOptions.setPassword(password.toCharArray());
+            connectOptions.setMaxInflight(1000);
+            connectOptions.setAutomaticReconnect(true);
+        }
         return connectOptions;
     }
 
