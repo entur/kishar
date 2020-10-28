@@ -109,6 +109,13 @@ public class SiriToGtfsRealtimeService {
         }
     };
 
+    public String getStatus() {
+        ArrayList<String> status = new ArrayList<>();
+        status.add("tripUpdates: " + tripUpdates.getEntityList().size());
+        status.add("vehiclePositions: " + vehiclePositions.getEntityList().size());
+        status.add("alerts: " + alerts.getEntityList().size());
+        return status.toString();
+    }
 
     public Object getTripUpdates(String contentType, String datasource) {
         if (prometheusMetricsService != null) {

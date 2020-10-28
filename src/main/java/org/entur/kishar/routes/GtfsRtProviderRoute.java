@@ -38,7 +38,14 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
                 .get("trip-updates").to("direct:getTripUpdates").produces("application/octet-stream").id("kishar.trip-updates")
                 .get("vehicle-positions").to("direct:getVehiclePositions").produces("application/octet-stream").id("kishar.vehicle-positions")
                 .get("alerts").to("direct:getAlerts").produces("application/octet-stream").id("kishar.alerts")
+                .get("debug/status").to("direct:getStatus").produces("application/text").id("kishar.status")
         ;
+
+
+        from("direct:getStatus")
+            .routeId("kishar.getStatus")
+            .bean(siriToGtfsRealtimeService, "getStatus()")
+            ;
 
         from("direct:getTripUpdates")
                 .routeId("kishar.getTripUpdates")
