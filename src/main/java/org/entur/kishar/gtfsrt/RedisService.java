@@ -59,6 +59,19 @@ public class RedisService {
             redisson = Redisson.create(config);
         }
     }
+    public void resetAllData() {
+        LOG.info("Before - VEHICLE_POSITION: " + redisson.getMap(Type.VEHICLE_POSITION.mapIdentifier).size());
+        redisson.getMap(Type.VEHICLE_POSITION.mapIdentifier).clear();
+        LOG.info("After - VEHICLE_POSITION: " + redisson.getMap(Type.VEHICLE_POSITION.mapIdentifier).size());
+
+        LOG.info("Before - TRIP_UPDATE: " + redisson.getMap(Type.TRIP_UPDATE.mapIdentifier).size());
+        redisson.getMap(Type.TRIP_UPDATE.mapIdentifier).clear();
+        LOG.info("After - TRIP_UPDATE: " + redisson.getMap(Type.TRIP_UPDATE.mapIdentifier).size());
+
+        LOG.info("Before - ALERT: " + redisson.getMap(Type.ALERT.mapIdentifier).size());
+        redisson.getMap(Type.ALERT.mapIdentifier).clear();
+        LOG.info("After - ALERT: " + redisson.getMap(Type.ALERT.mapIdentifier).size());
+    }
 
     public void writeGtfsRt(Map<String, GtfsRtData> gtfsRt, Type type) {
         if (redisEnabled) {

@@ -93,6 +93,11 @@ public class SiriToGtfsRealtimeService {
         this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance);
     }
 
+    public void reset() {
+        LOG.warn("Resetting ALL data");
+        redisService.resetAllData();
+    }
+
     public String getStatus() {
         ArrayList<String> status = new ArrayList<>();
         status.add("tripUpdates: " + tripUpdates.getEntityList().size());
