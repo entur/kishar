@@ -47,6 +47,9 @@ public class RedisService {
 
     RedissonClient redisson;
 
+    @Value("${kishar.redis.reset:false}")
+    private boolean resetAllData;
+
     public RedisService(@Value("${kishar.redis.enabled:false}") boolean redisEnabled, @Value("${kishar.redis.host:}") String host, @Value("${kishar.redis.port:}") String port) {
         this.redisEnabled = redisEnabled;
 
@@ -57,6 +60,13 @@ public class RedisService {
                     .addNodeAddress("redis://" + host + ":" + port);
 
             redisson = Redisson.create(config);
+
+            if (resetAllData) {
+                LOG.warn("Resetting all data!!");
+                redisson.getMapCache(Type.VEHICLE_POSITION.mapIdentifier).clear();
+                redisson.getMapCache(Type.TRIP_UPDATE.mapIdentifier).clear();
+                redisson.getMapCache(Type.ALERT.mapIdentifier).clear();
+            }
         }
     }
 
