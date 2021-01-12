@@ -16,78 +16,74 @@ package org.entur.kishar.gtfsrt.helpers;
 
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
-import org.entur.kishar.gtfsrt.AlertData;
 import uk.org.siri.siri20.HalfOpenTimestampOutputRangeStructure;
-import uk.org.siri.siri20.PtSituationElement;
-import uk.org.siri.siri20.WorkflowStatusEnumeration;
 
 import java.time.ZonedDateTime;
-import java.util.List;
 
 public class SiriLibrary {
 
-    public static boolean isSituationClosed(PtSituationElement situation) {
-        WorkflowStatusEnumeration progress = situation.getProgress();
-        return progress != null && (progress == WorkflowStatusEnumeration.CLOSING || progress == WorkflowStatusEnumeration.CLOSED);
-    }
+//    public static boolean isSituationClosed(PtSituationElement situation) {
+//        WorkflowStatusEnumeration progress = situation.getProgress();
+//        return progress != null && (progress == WorkflowStatusEnumeration.CLOSING || progress == WorkflowStatusEnumeration.CLOSED);
+//    }
 
-    public static boolean isSituationExpired(PtSituationElement situation, ZonedDateTime currentTime) {
-        HalfOpenTimestampOutputRangeStructure publicationWindow = situation.getPublicationWindow();
-        if(publicationWindow != null && isTimeRangeActiveOrUpcoming(publicationWindow, currentTime)) {
-            return false;
-        } else {
-            List<HalfOpenTimestampOutputRangeStructure> periods = situation.getValidityPeriods();
-            if(periods != null) {
-                for (HalfOpenTimestampOutputRangeStructure period : periods) {
-                    if(isTimeRangeActiveOrUpcoming(period, currentTime)) {
-                        return false;
-                    }
-                }
-            }
-
-            return publicationWindow != null || periods != null && !periods.isEmpty();
-        }
-    }
+//    public static boolean isSituationExpired(PtSituationElement situation, ZonedDateTime currentTime) {
+//        HalfOpenTimestampOutputRangeStructure publicationWindow = situation.getPublicationWindow();
+//        if(publicationWindow != null && isTimeRangeActiveOrUpcoming(publicationWindow, currentTime)) {
+//            return false;
+//        } else {
+//            List<HalfOpenTimestampOutputRangeStructure> periods = situation.getValidityPeriods();
+//            if(periods != null) {
+//                for (HalfOpenTimestampOutputRangeStructure period : periods) {
+//                    if(isTimeRangeActiveOrUpcoming(period, currentTime)) {
+//                        return false;
+//                    }
+//                }
+//            }
+//
+//            return publicationWindow != null || periods != null && !periods.isEmpty();
+//        }
+//    }
 
     public static boolean isTimeRangeActiveOrUpcoming(HalfOpenTimestampOutputRangeStructure range, ZonedDateTime time) {
         return range.getStartTime() == null && range.getEndTime() == null?false:range.getEndTime() == null || !time.isAfter(range.getEndTime());
     }
 
-    public static boolean isTimeRangeActive(HalfOpenTimestampOutputRangeStructure range, ZonedDateTime time) {
-        if(range.getStartTime() == null && range.getEndTime() == null) {
-            return false;
-        } else {
-            boolean from = range.getStartTime() == null || !range.getStartTime().isAfter(time);
-            boolean to = range.getEndTime() == null || !range.getEndTime().isBefore(time);
-            return from && to;
-        }
-    }
+//    public static boolean isTimeRangeActive(HalfOpenTimestampOutputRangeStructure range, ZonedDateTime time) {
+//        if(range.getStartTime() == null && range.getEndTime() == null) {
+//            return false;
+//        } else {
+//            boolean from = range.getStartTime() == null || !range.getStartTime().isAfter(time);
+//            boolean to = range.getEndTime() == null || !range.getEndTime().isBefore(time);
+//            return from && to;
+//        }
+//    }
 
-    public static boolean isAlertDataExpired(AlertData data) {
-        if (data.getExpirationTime() == null) {
-            return false;
-        }
-        return data.getExpirationTime().isBefore(ZonedDateTime.now());
-    }
+//    public static boolean isAlertDataExpired(AlertData data) {
+//        if (data.getExpirationTime() == null) {
+//            return false;
+//        }
+//        return data.getExpirationTime().isBefore(ZonedDateTime.now());
+//    }
 
 
-    public static boolean isSituationPublishedOrValid(PtSituationElement situation, ZonedDateTime currentTime) {
-        HalfOpenTimestampOutputRangeStructure publicationWindow = situation.getPublicationWindow();
-        if(publicationWindow != null && isTimeRangeActive(publicationWindow, currentTime)) {
-            return true;
-        } else {
-            List<HalfOpenTimestampOutputRangeStructure> periods = situation.getValidityPeriods();
-            if(periods != null) {
-                for (HalfOpenTimestampOutputRangeStructure period : periods) {
-                    if(isTimeRangeActive(period, currentTime)) {
-                        return true;
-                    }
-                }
-            }
-
-            return publicationWindow == null && (periods == null || periods.isEmpty());
-        }
-    }
+//    public static boolean isSituationPublishedOrValid(PtSituationElement situation, ZonedDateTime currentTime) {
+//        HalfOpenTimestampOutputRangeStructure publicationWindow = situation.getPublicationWindow();
+//        if(publicationWindow != null && isTimeRangeActive(publicationWindow, currentTime)) {
+//            return true;
+//        } else {
+//            List<HalfOpenTimestampOutputRangeStructure> periods = situation.getValidityPeriods();
+//            if(periods != null) {
+//                for (HalfOpenTimestampOutputRangeStructure period : periods) {
+//                    if(isTimeRangeActive(period, currentTime)) {
+//                        return true;
+//                    }
+//                }
+//            }
+//
+//            return publicationWindow == null && (periods == null || periods.isEmpty());
+//        }
+//    }
 
     public static Timestamp getCurrentTime() {
         long millis = System.currentTimeMillis();

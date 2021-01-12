@@ -2,6 +2,9 @@ package org.entur.kishar.gtfsrt.domain;
 
 import java.io.*;
 
+/**
+ * @deprecated
+ */
 public class TripUpdateKey implements Serializable {
 
     private String id;
@@ -18,7 +21,7 @@ public class TripUpdateKey implements Serializable {
             return (TripUpdateKey)in.readObject();
         }
         catch (Exception e) {
-            throw new IllegalStateException("could not create object", e);
+            return null;
         }
     }
 

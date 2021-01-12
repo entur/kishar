@@ -23,7 +23,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     public void testSituationToAlert() throws IOException {
         SiriType siri = createSiriSx("RUT");
 
-        Map<byte[], byte[]> redisMap = getRedisMap(rtService, siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.ALERT)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -46,14 +46,12 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertAlert(alert);
     }
 
-    private Map<byte[], byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
-        Map<byte[], GtfsRtData> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
-        Map<byte[], byte[]> redisMap = Maps.newHashMap();
-        for (byte[] key : gtfsRt.keySet()) {
+    private Map<String, byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
+        Map<String, GtfsRtData> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
+        Map<String, byte[]> redisMap = Maps.newHashMap();
+        for (String key : gtfsRt.keySet()) {
             byte[] data = gtfsRt.get(key).getData();
-            byte[] dataInBytes = new byte[data.length + 16];
-            System.arraycopy(data, 0, dataInBytes, 16, data.length);
-            redisMap.put(key, dataInBytes);
+            redisMap.put(key, data);
         }
         return redisMap;
     }
@@ -64,7 +62,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String datasource = "BNR";
         SiriType siri = createSiriSx(datasource);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(rtService, siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.ALERT)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -83,7 +81,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         SiriType siri = createSiriSx(datasource);
 
-        Map<byte[], GtfsRtData> result = rtService.convertSiriSxToGtfsRt(siri);
+        Map<String, GtfsRtData> result = rtService.convertSiriSxToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }

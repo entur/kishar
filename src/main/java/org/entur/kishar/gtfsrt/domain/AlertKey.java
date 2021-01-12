@@ -2,6 +2,9 @@ package org.entur.kishar.gtfsrt.domain;
 
 import java.io.*;
 
+/**
+ * @deprecated
+ */
 public class AlertKey implements Serializable {
 
     private String id;
@@ -18,7 +21,7 @@ public class AlertKey implements Serializable {
             return (AlertKey)in.readObject();
         }
         catch (Exception e) {
-            throw new IllegalStateException("could not create object", e);
+            return null;
         }
     }
 

@@ -16,6 +16,7 @@ package org.entur.kishar;
 
 import org.entur.pubsub.camel.config.GooglePubSubCamelComponentConfig;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 

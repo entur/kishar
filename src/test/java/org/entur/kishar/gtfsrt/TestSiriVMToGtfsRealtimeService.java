@@ -3,7 +3,6 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
@@ -47,7 +46,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -77,14 +76,14 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertEquals((float)velocity, position.getSpeed());
     }
 
-    private Map<byte[], byte[]> getRedisMap(SiriType siri) {
-        Map<byte[], GtfsRtData> gtfsRt = rtService.convertSiriVmToGtfsRt(siri);
-        Map<byte[], byte[]> redisMap = Maps.newHashMap();
-        for (byte[] key : gtfsRt.keySet()) {
+    private Map<String, byte[]> getRedisMap(
+        SiriToGtfsRealtimeService realtimeService, SiriType siri
+    ) {
+        Map<String, GtfsRtData> gtfsRt = realtimeService.convertSiriVmToGtfsRt(siri);
+        Map<String, byte[]> redisMap = Maps.newHashMap();
+        for (String key : gtfsRt.keySet()) {
             byte[] data = gtfsRt.get(key).getData();
-            byte[] dataInBytes = new byte[data.length + 16];
-            System.arraycopy(data, 0, dataInBytes, 16, data.length);
-            redisMap.put(key, dataInBytes);
+            redisMap.put(key, data);
         }
         return redisMap;
     }
@@ -112,7 +111,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -152,7 +151,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -183,8 +182,8 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         SiriType siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
         SiriType siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(siriRUT);
-        Map<byte[], byte[]> siriBnrMap = getRedisMap(siriBNR);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siriRUT);
+        Map<String, byte[]> siriBnrMap = getRedisMap(rtService, siriBNR);
 
         redisMap.putAll(siriBnrMap);
 
@@ -228,7 +227,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         SiriType siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
 
-        Map<byte[], byte[]> redisMap = getRedisMap(siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
         rtService.writeOutput();
@@ -270,7 +269,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<byte[], GtfsRtData> result = rtService.convertSiriVmToGtfsRt(siri);
+        Map<String, GtfsRtData> result = rtService.convertSiriVmToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }

@@ -11,6 +11,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import uk.org.siri.siri20.Siri;
 
@@ -19,6 +20,7 @@ import java.util.List;
 
 
 @RunWith(SpringJUnit4ClassRunner.class)
+@Configuration
 @SpringBootTest(webEnvironment= SpringBootTest.WebEnvironment.MOCK, classes = App.class)
 public abstract class SiriToGtfsRealtimeServiceTest {
 
@@ -61,10 +63,7 @@ public abstract class SiriToGtfsRealtimeServiceTest {
     public void cleanup() {
         //Deletes all received data
         rtService.setAlerts(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), new HashMap<>());
-        rtService.alertDataById.clear();
         rtService.setVehiclePositions(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), new HashMap<>());
-        rtService.dataByVehicle.clear();
         rtService.setTripUpdates(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), new HashMap<>());
-        rtService.dataByTimetable.clear();
     }
 }

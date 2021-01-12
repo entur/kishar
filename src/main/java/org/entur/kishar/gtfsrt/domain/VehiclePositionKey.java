@@ -1,9 +1,10 @@
 package org.entur.kishar.gtfsrt.domain;
 
-import org.entur.kishar.gtfsrt.TripAndVehicleKey;
-
 import java.io.*;
 
+/**
+ * @deprecated
+ */
 public class VehiclePositionKey implements Serializable {
 
     private String id;
@@ -20,7 +21,7 @@ public class VehiclePositionKey implements Serializable {
             return (VehiclePositionKey)in.readObject();
         }
         catch (Exception e) {
-            throw new IllegalStateException("could not create object", e);
+            return null;
         }
     }
 

@@ -21,10 +21,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime.*;
-import org.entur.kishar.gtfsrt.domain.AlertKey;
+import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
-import org.entur.kishar.gtfsrt.domain.TripUpdateKey;
-import org.entur.kishar.gtfsrt.domain.VehiclePositionKey;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -32,16 +30,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import uk.org.siri.www.siri.*;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
 
 @Service
+@Configuration
 public class SiriToGtfsRealtimeService {
     private static Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
@@ -52,12 +51,6 @@ public class SiriToGtfsRealtimeService {
     private static final String MEDIA_TYPE_APPLICATION_JSON = "application/json";
 
     private AlertFactory alertFactory;
-
-    Map<TripAndVehicleKey, VehicleData> dataByVehicle = new ConcurrentHashMap<>();
-
-    Map<TripAndVehicleKey, EstimatedVehicleJourneyData> dataByTimetable = new ConcurrentHashMap<>();
-
-    Map<String, AlertData> alertDataById = new ConcurrentHashMap<>();
 
     private boolean newData = false;
 
@@ -99,15 +92,6 @@ public class SiriToGtfsRealtimeService {
         this.redisService = redisService;
         this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance);
     }
-
-    private Set<String> _monitoringErrorsForVehiclePositions = new HashSet<String>() {
-        private static final long serialVersionUID = 1L;
-
-        {
-            add(MONITORING_ERROR_NO_CURRENT_INFORMATION);
-            add(MONITORING_ERROR_NOMINALLY_LOCATED);
-        }
-    };
 
     public String getStatus() {
         ArrayList<String> status = new ArrayList<>();
@@ -264,7 +248,7 @@ public class SiriToGtfsRealtimeService {
                 fvjRef.getDatedVehicleJourneyRef(), fvjRef.getDataFrameRef().getValue(), vehicle);
     }
 
-    public void writeOutput() throws IOException {
+    public void writeOutput() {
         newData = false;
         long t1 = System.currentTimeMillis();
         writeTripUpdates();
@@ -280,20 +264,20 @@ public class SiriToGtfsRealtimeService {
                 tripUpdates.getEntityCount());
     }
 
-    private void writeTripUpdates() throws IOException {
+    private void writeTripUpdates() {
 
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
-        Map<byte[], byte[]> tripUpdateMap = redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE);
+        Map<String, byte[]> tripUpdateMap = redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE);
 
-        for (byte[] keyBytes : tripUpdateMap.keySet()) {
-            TripUpdateKey key = TripUpdateKey.create(keyBytes);
+        for (String keyBytes : tripUpdateMap.keySet()) {
+            CompositeKey key = CompositeKey.create(keyBytes);
 
             FeedEntity entity = null;
             try {
                 byte[] data = tripUpdateMap.get(keyBytes);
-                data = Arrays.copyOfRange(data, 16, data.length);
+//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
                 LOG.error("invalid feed entity from reddis with key: " + key, e);
@@ -340,17 +324,17 @@ public class SiriToGtfsRealtimeService {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
-        Map<byte[], byte[]> vehiclePositionMap = redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION);
+        Map<String, byte[]> vehiclePositionMap = redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION);
 
-        for (byte[] keyBytes : vehiclePositionMap.keySet()) {
-            VehiclePositionKey key = VehiclePositionKey.create(keyBytes);
+        for (String keyBytes : vehiclePositionMap.keySet()) {
+            CompositeKey key = CompositeKey.create(keyBytes);
             FeedEntity entity = null;
             try {
                 byte[] data = vehiclePositionMap.get(keyBytes);
-                data = Arrays.copyOfRange(data, 16, data.length);
+//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
-                LOG.error("invalid feed entity from reddis with key: " + key, e);
+                LOG.error("invalid feed entity from redis with key: " + key, e);
                 continue;
             }
 
@@ -382,14 +366,15 @@ public class SiriToGtfsRealtimeService {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
         Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
 
-        Map<byte[], byte[]> alertMap = redisService.readGtfsRtMap(RedisService.Type.ALERT);
+        Map<String, byte[]> alertMap = redisService.readGtfsRtMap(RedisService.Type.ALERT);
 
-        for (byte[] keyBytes : alertMap.keySet()) {
-            AlertKey key = AlertKey.create(keyBytes);
+        for (String keyBytes : alertMap.keySet()) {
+            CompositeKey key = CompositeKey.create(keyBytes);
+
             FeedEntity entity = null;
             try {
                 byte[] data = alertMap.get(keyBytes);
-                data = Arrays.copyOfRange(data, 16, data.length);
+//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
                 LOG.error("invalid feed entity from reddis with key: " + key, e);
@@ -437,9 +422,9 @@ public class SiriToGtfsRealtimeService {
         this.alertsByDatasource = alertsByDatasource;
     }
 
-    public Map<byte[], GtfsRtData> convertSiriVmToGtfsRt(SiriType siri) {
+    public Map<String, GtfsRtData> convertSiriVmToGtfsRt(SiriType siri) {
 
-        Map<byte[], GtfsRtData> result = Maps.newHashMap();
+        Map<String, GtfsRtData> result = Maps.newHashMap();
 
         if (siri == null) {
             return result;
@@ -469,7 +454,7 @@ public class SiriToGtfsRealtimeService {
                                 timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
                             }
 
-                            result.put(new VehiclePositionKey(key, activity.getMonitoredVehicleJourney().getDataSource()).toByteArray(),
+                            result.put(new CompositeKey(key, activity.getMonitoredVehicleJourney().getDataSource()).asString(),
                                     new GtfsRtData(entity.build().toByteArray(), timeToLive));
                         } catch (Exception e) {
                             //LOG.debug("Failed parsing vehicle activity", e);
@@ -482,14 +467,14 @@ public class SiriToGtfsRealtimeService {
         return result;
     }
 
-    public void registerGtfsRtVehiclePosition(Map<byte[], GtfsRtData> vehiclePositions) {
+    public void registerGtfsRtVehiclePosition(Map<String, GtfsRtData> vehiclePositions) {
         redisService.writeGtfsRt(vehiclePositions, RedisService.Type.VEHICLE_POSITION);
     }
 
-    public Map<byte[], GtfsRtData> convertSiriEtToGtfsRt(SiriType siri) {
+    public Map<String, GtfsRtData> convertSiriEtToGtfsRt(SiriType siri) {
 
 
-        Map<byte[], GtfsRtData> result = Maps.newHashMap();
+        Map<String, GtfsRtData> result = Maps.newHashMap();
 
         if (siri == null) {
             return result;
@@ -542,7 +527,7 @@ public class SiriToGtfsRealtimeService {
                                             timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), expirationTime);
                                         }
 
-                                        result.put(new TripUpdateKey(key, estimatedVehicleJourney.getDataSource()).toByteArray(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
+                                        result.put(new CompositeKey(key, estimatedVehicleJourney.getDataSource()).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
                                     } catch (Exception e) {
                                         //LOG.debug("Failed parsing trip updates", e);
                                     }
@@ -556,13 +541,13 @@ public class SiriToGtfsRealtimeService {
         return result;
     }
 
-    public void registerGtfsRtTripUpdates(Map<byte[], GtfsRtData> tripUpdates) {
+    public void registerGtfsRtTripUpdates(Map<String, GtfsRtData> tripUpdates) {
         redisService.writeGtfsRt(tripUpdates, RedisService.Type.TRIP_UPDATE);
     }
 
-    public Map<byte[], GtfsRtData> convertSiriSxToGtfsRt(SiriType siri) {
+    public Map<String, GtfsRtData> convertSiriSxToGtfsRt(SiriType siri) {
 
-        Map<byte[], GtfsRtData> result = Maps.newHashMap();
+        Map<String, GtfsRtData> result = Maps.newHashMap();
 
         if (siri == null) {
             return result;
@@ -595,7 +580,7 @@ public class SiriToGtfsRealtimeService {
                                     timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), endTime);
                                 }
 
-                                result.put(new AlertKey(key, ptSituationElement.getParticipantRef().getValue()).toByteArray(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
+                                result.put(new CompositeKey(key, ptSituationElement.getParticipantRef().getValue()).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
                             } catch (Exception e) {
                                 //LOG.debug("Failed parsing alerts", e);
                             }
@@ -608,7 +593,7 @@ public class SiriToGtfsRealtimeService {
         return result;
     }
 
-    public void registerGtfsRtAlerts(Map<byte[], GtfsRtData> alerts) {
+    public void registerGtfsRtAlerts(Map<String, GtfsRtData> alerts) {
         redisService.writeGtfsRt(alerts, RedisService.Type.ALERT);
     }
 }
