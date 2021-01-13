@@ -132,35 +132,6 @@ public class PubSubRoute extends RouteBuilder {
                 .bean(metrics, "registerIncomingEntity(${header.type}, 1, false)")
             ;
 
-            from("direct:send.vehicle.position.to.mqtt")
-                    .choice().when(body().isNotNull())
-                    .split(body())
-                    .process(p -> {
-                        final String key = p.getIn().getBody(String.class);
-                        CompositeKey mappedKey = CompositeKey.create(key);
-                        Map<String, GtfsRtData> map = p.getIn().getHeader("map", Map.class);
-                        final GtfsRtData body = map.get(key);
-                        if (body.getData() != null) {
-                            GtfsRealtime.FeedEntity feedEntity = GtfsRealtime.FeedEntity.parseFrom(body.getData());
-                            if (feedEntity != null && feedEntity.hasVehicle()) {
-                                GtfsRealtime.VehiclePosition vehiclePosition = feedEntity.getVehicle();
-                                String topic = buildTopic(vehiclePosition);
-                                if (topic != null) {
-                                    p.getOut().setBody(vehiclePosition.toByteArray());
-                                    p.getOut().setHeaders(p.getIn().getHeaders());
-                                    p.getOut().setHeader(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC, topic);
-                                    p.getOut().setHeader("DATASOURCE", mappedKey.getDatasource());
-                                    p.getOut().setHeader("DATATYPE", "SIRI_VM");
-                                }
-                            }
-                        }
-                    })
-                    .bean(metrics, "registerReceivedMqttMessage(${header.DATASOURCE}, ${header.DATATYPE})")
-                    .choice().when(header(PahoConstants.CAMEL_PAHO_OVERRIDE_TOPIC).isNotNull())
-                        .to("direct:send.to.mqtt")
-                    .endChoice()
-                    .end()
-                    ;
         }
     }
 
