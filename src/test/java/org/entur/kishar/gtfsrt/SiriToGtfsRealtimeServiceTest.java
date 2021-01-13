@@ -1,6 +1,5 @@
 package org.entur.kishar.gtfsrt;
 
-import com.google.transit.realtime.GtfsRealtime;
 import org.entur.kishar.App;
 import org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary;
 import org.junit.After;
@@ -8,12 +7,10 @@ import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import uk.org.siri.siri20.Siri;
 
 import java.util.HashMap;
 import java.util.List;

@@ -1,12 +1,9 @@
 package org.entur.kishar.routes;
 
 
-import com.google.transit.realtime.GtfsRealtime;
 import org.apache.camel.builder.RouteBuilder;
-import org.apache.camel.component.paho.PahoConstants;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
-import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
