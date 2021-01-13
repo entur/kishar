@@ -18,36 +18,12 @@ public class CompositeKey implements Serializable {
         this.datasource = datasource;
     }
 
-    public CompositeKey() {
-
+    private CompositeKey() {
+        //Needed for Jackson unmarshalling
     }
 
     public static CompositeKey reCreate(byte[] input) {
-        CompositeKey recreatedKey = CompositeKey.create(new String(input));
-        if (recreatedKey != null) {
-            return recreatedKey;
-        }
-
-        final AlertKey alertKey = AlertKey.create(input);
-        if (alertKey != null) {
-            recreatedKey.datasource = alertKey.getDatasource();
-            recreatedKey.id = alertKey.getId();
-            return recreatedKey;
-        }
-        final TripUpdateKey tripUpdateKey = TripUpdateKey.create(input);
-        if (tripUpdateKey != null) {
-            recreatedKey.datasource = tripUpdateKey.getDatasource();
-            recreatedKey.id = tripUpdateKey.getId();
-            return recreatedKey;
-        }
-        final VehiclePositionKey vehiclePositionKey = VehiclePositionKey.create(input);
-        if (vehiclePositionKey != null) {
-            recreatedKey.datasource = vehiclePositionKey.getDatasource();
-            recreatedKey.id = vehiclePositionKey.getId();
-            return recreatedKey;
-        }
-
-        return null;
+        return create(new String(input));
     }
 
     public static CompositeKey create(String input) {
