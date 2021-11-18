@@ -45,7 +45,9 @@ public class GtfsRealtimeLibrary {
                         language = "en";
                         break;
                 }
-                translation.setLanguage(language);
+                if (language != null) {
+                    translation.setLanguage(language);
+                }
             }
 
             GtfsRealtime.TranslatedString.Builder tsBuilder = GtfsRealtime.TranslatedString.newBuilder();
