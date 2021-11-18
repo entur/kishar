@@ -49,8 +49,24 @@ public class AlertFactory {
         handleReasons(ptSituation, alert);
         handleAffects(ptSituation, alert);
         handleConsequences(ptSituation, alert);
+        handleUrls(ptSituation, alert);
 
         return alert;
+    }
+
+    private void handleUrls(PtSituationElementStructure ptSituation, Alert.Builder alert) {
+        if (ptSituation.hasInfoLinks()) {
+            final PtSituationElementStructure.InfoLinksType infoLinks = ptSituation.getInfoLinks();
+            if (infoLinks.getInfoLinkCount() > 0) {
+                TranslatedString.Builder url = TranslatedString.newBuilder();
+                for (InfoLinkStructure infoLinkStructure : infoLinks.getInfoLinkList()) {
+                    TranslatedString.Translation.Builder translation = TranslatedString.Translation.newBuilder();
+                    translation.setText(infoLinkStructure.getUri());
+                    url.addTranslation(translation);
+                }
+                alert.setUrl(url);
+            }
+        }
     }
 
     private void handleDescriptions(PtSituationElementStructure ptSituation,

@@ -26,12 +26,22 @@ public class Helper {
                 .setValue(datasource)
                 .build();
 
+        PtSituationElementStructure.InfoLinksType infoLinksType = PtSituationElementStructure.InfoLinksType
+            .newBuilder()
+            .addInfoLink(InfoLinkStructure.newBuilder()
+                .setUri("http://www.example.com")
+                .build()
+            )
+            .build();
+
         PtSituationElementStructure ptSituation = PtSituationElementStructure.newBuilder()
                 .setSituationNumber(situationNumber)
                 .addSummary(summary)
                 .addDescription(description)
                 .setParticipantRef(requestorRef)
+                .setInfoLinks(infoLinksType)
                 .build();
+
 
         return ptSituation;
     }
