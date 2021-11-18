@@ -88,10 +88,12 @@ public class AlertFactory {
     }
 
     private Cause getReasonAsCause(PtSituationElementStructure ptSituation) {
-        if (ptSituation.getEnvironmentReason() != null) {
+        if (ptSituation.getEnvironmentReason() != null &&
+            ptSituation.getEnvironmentReasonValue() > 0) {
             return Cause.WEATHER;
         }
-        if (ptSituation.getEquipmentReason() != null) {
+        if (ptSituation.getEquipmentReason() != null &&
+            ptSituation.getEquipmentReasonValue() > 0) {
             switch (ptSituation.getEquipmentReason()) {
                 case EQUIPMENT_REASON_ENUMERATION_CONSTRUCTION_WORK:
                     return Cause.CONSTRUCTION;
@@ -101,11 +103,10 @@ public class AlertFactory {
                 case EQUIPMENT_REASON_ENUMERATION_LATE_FINISH_TO_ENGINEERING_WORK:
                 case EQUIPMENT_REASON_ENUMERATION_REPAIR_WORK:
                     return Cause.MAINTENANCE;
-                default:
-                    return Cause.TECHNICAL_PROBLEM;
             }
         }
-        if (ptSituation.getPersonnelReason() != null) {
+        if (ptSituation.getPersonnelReason() != null &&
+            ptSituation.getPersonnelReasonValue() > 0) {
             switch (ptSituation.getPersonnelReason()) {
                 case PERSONNEL_REASON_ENUMERATION_INDUSTRIAL_ACTION:
                 case PERSONNEL_REASON_ENUMERATION_UNOFFICIAL_INDUSTRIAL_ACTION:
@@ -117,7 +118,8 @@ public class AlertFactory {
          * There are really so many possibilities here that it's tricky to translate
          * them all
          */
-        if (ptSituation.getMiscellaneousReason() != null) {
+        if (ptSituation.getMiscellaneousReason() != null &&
+            ptSituation.getMiscellaneousReasonValue() > 0) {
             switch (ptSituation.getMiscellaneousReason()) {
                 case MISCELLANEOUS_REASON_ENUMERATION_ACCIDENT:
                 case MISCELLANEOUS_REASON_ENUMERATION_COLLISION:
