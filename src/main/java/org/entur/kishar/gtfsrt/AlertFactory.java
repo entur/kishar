@@ -15,14 +15,19 @@
  */
 package org.entur.kishar.gtfsrt;
 
+import com.google.protobuf.Timestamp;
 import com.google.transit.realtime.GtfsRealtime.*;
 import com.google.transit.realtime.GtfsRealtime.Alert.Cause;
 import com.google.transit.realtime.GtfsRealtime.Alert.Effect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import uk.org.ifopt.www.ifopt.StopPlaceRefStructure;
 import uk.org.siri.www.siri.*;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.translation;
@@ -31,7 +36,9 @@ import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.translation;
 public class AlertFactory {
 
     private static final Logger _log = LoggerFactory.getLogger(AlertFactory.class);
-    
+    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyyMMdd");
+    private static final SimpleDateFormat TIME_FORMATTER = new SimpleDateFormat("HH:mm:ss");
+
     public Alert.Builder createAlertFromSituation(
             PtSituationElementStructure ptSituation) {
 
@@ -158,87 +165,181 @@ public class AlertFactory {
             return;
         }
 
-        AffectsScopeStructure.OperatorsType operators = affectsStructure.getOperators();
 
-        if (operators != null
-                && operators.getAffectedOperatorCount() > 0) {
+        if (affectsStructure.hasOperators()) {
+            AffectsScopeStructure.OperatorsType operators = affectsStructure.getOperators();
+            if (operators != null && operators.getAffectedOperatorCount() > 0) {
 
-            for (AffectedOperatorStructure operator : operators.getAffectedOperatorList()) {
-                OperatorRefStructure operatorRef = operator.getOperatorRef();
-                if (operatorRef == null || operatorRef.getValue() == null) {
-                    continue;
-                }
-                String agencyId = (operatorRef.getValue());
-                EntitySelector.Builder selector = EntitySelector.newBuilder();
-                selector.setAgencyId(agencyId);
-                serviceAlert.addInformedEntity(selector);
-            }
-        }
-
-        AffectsScopeStructure.StopPointsType stopPoints = affectsStructure.getStopPoints();
-
-        if (stopPoints != null
-                && stopPoints.getAffectedStopPointCount() > 0) {
-
-            for (AffectedStopPointStructure stopPoint : stopPoints.getAffectedStopPointList()) {
-                StopPointRefStructure stopRef = stopPoint.getStopPointRef();
-                if (stopRef == null || stopRef.getValue() == null) {
-                    continue;
-                }
-                String stopId = (stopRef.getValue());
-                EntitySelector.Builder selector = EntitySelector.newBuilder();
-                selector.setStopId(stopId);
-                serviceAlert.addInformedEntity(selector);
-            }
-        }
-
-        AffectsScopeStructure.VehicleJourneysType vjs = affectsStructure.getVehicleJourneys();
-        if (vjs != null
-                && vjs.getAffectedVehicleJourneyCount() > 0) {
-
-            for (AffectedVehicleJourneyStructure vj : vjs.getAffectedVehicleJourneyList()) {
-
-                EntitySelector.Builder selector = EntitySelector.newBuilder();
-
-                if (vj.getLineRef() != null) {
-                    String routeId = (vj.getLineRef().getValue());
-                    selector.setRouteId(routeId);
-                }
-
-                List<VehicleJourneyRefStructure> tripRefs = vj.getVehicleJourneyRefList();
-                AffectedVehicleJourneyStructure.CallsType stopRefs = vj.getCalls();
-
-                boolean hasTripRefs = !tripRefs.isEmpty();
-                boolean hasStopRefs = stopRefs != null && stopRefs.getCallCount() > 0;
-
-                if (!(hasTripRefs || hasStopRefs)) {
-                    if (selector.hasRouteId()) {
-                        serviceAlert.addInformedEntity(selector);
+                for (AffectedOperatorStructure operator : operators.getAffectedOperatorList()) {
+                    OperatorRefStructure operatorRef = operator.getOperatorRef();
+                    if (operatorRef == null || operatorRef.getValue() == null) {
+                        continue;
                     }
-                } else if (hasTripRefs && hasStopRefs) {
-                    for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRefList()) {
-                        String tripId = (vjRef.getValue());
+                    String agencyId = (operatorRef.getValue());
+                    EntitySelector.Builder selector = EntitySelector.newBuilder();
+                    selector.setAgencyId(agencyId);
+                    serviceAlert.addInformedEntity(selector);
+                }
+            }
+        }
+
+        if (affectsStructure.hasStopPoints()) {
+            AffectsScopeStructure.StopPointsType stopPoints = affectsStructure.getStopPoints();
+
+            if (stopPoints != null && stopPoints.getAffectedStopPointCount() > 0) {
+
+                for (AffectedStopPointStructure stopPoint : stopPoints.getAffectedStopPointList()) {
+                    StopPointRefStructure stopRef = stopPoint.getStopPointRef();
+                    if (stopRef == null || stopRef.getValue() == null) {
+                        continue;
+                    }
+                    String stopId = (stopRef.getValue());
+                    EntitySelector.Builder selector = EntitySelector.newBuilder();
+                    selector.setStopId(stopId);
+                    serviceAlert.addInformedEntity(selector);
+                }
+            }
+        }
+
+        if (affectsStructure.hasVehicleJourneys()) {
+            AffectsScopeStructure.VehicleJourneysType vjs = affectsStructure.getVehicleJourneys();
+            if (vjs != null && vjs.getAffectedVehicleJourneyCount() > 0) {
+
+                for (AffectedVehicleJourneyStructure affectedVehicleJourney : vjs.getAffectedVehicleJourneyList()) {
+
+                    String routeId = null;
+                    List<TripDescriptor> tripDescriptors = new ArrayList<>();
+                    List<String> stopIds = new ArrayList<>();
+
+                    if (affectedVehicleJourney.hasLineRef()) {
+                        routeId = (affectedVehicleJourney.getLineRef().getValue());
+                    }
+
+                    String startDate = null;
+                    String startTime = null;
+                    if (affectedVehicleJourney.hasOriginAimedDepartureTime()) {
+                        final Timestamp originAimedDepartureTime = affectedVehicleJourney.getOriginAimedDepartureTime();
+                        Date date = new Date(originAimedDepartureTime.getSeconds()*1000);
+
+                        startDate = DATE_FORMATTER.format(date);
+                        startTime = TIME_FORMATTER.format(date);
+                    }
+
+                    List<VehicleJourneyRefStructure> tripRefs = affectedVehicleJourney.getVehicleJourneyRefList();
+                    for (VehicleJourneyRefStructure tripRef : tripRefs) {
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
-                        tripDescriptor.setTripId(tripId);
-                        selector.setTrip(tripDescriptor);
-                        for (AffectedCallStructure call : stopRefs.getCallList()) {
-                            String stopId = (call.getStopPointRef().getValue());
-                            selector.setStopId(stopId);
-                            serviceAlert.addInformedEntity(selector);
+                        tripDescriptor.setTripId(tripRef.getValue());
+                        if (routeId != null) {
+                            tripDescriptor.setRouteId(routeId);
+                        }
+                        if (startDate != null) {
+                            tripDescriptor.setStartDate(startDate);
+                        }
+                        if (startTime != null) {
+                            tripDescriptor.setStartTime(startTime);
+                        }
+                        tripDescriptors.add(tripDescriptor.build());
+                    }
+
+                    if (affectedVehicleJourney.getRouteCount() > 0) {
+                        for (AffectedRouteStructure affectedRoute : affectedVehicleJourney.getRouteList()) {
+                            if (affectedRoute.hasStopPoints()) {
+                                final AffectedRouteStructure.StopPointsType stopPoints = affectedRoute.getStopPoints();
+                                if (stopPoints.getSequenceWrapperCount() > 0) {
+                                    for (AffectedRouteStructure.StopPointsType.SequenceWrapper_StopPointsType stopPoint : stopPoints.getSequenceWrapperList()) {
+                                        if (stopPoint.hasAffectedStopPoint()) {
+                                            final String stopId = stopPoint
+                                                .getAffectedStopPoint()
+                                                .getStopPointRef()
+                                                .getValue();
+
+                                            stopIds.add(stopId);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                } else if (hasTripRefs) {
-                    for (VehicleJourneyRefStructure vjRef : vj.getVehicleJourneyRefList()) {
-                        String tripId = (vjRef.getValue());
-                        TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
-                        tripDescriptor.setTripId(tripId);
-                        selector.setTrip(tripDescriptor);
-                        serviceAlert.addInformedEntity(selector);
+
+                    if (tripDescriptors.isEmpty()) {
+                        // Route only
+                        if (routeId != null) {
+                            EntitySelector.Builder selector = EntitySelector.newBuilder();
+                            selector.setRouteId(routeId);
+                            serviceAlert.addInformedEntity(selector);
+                        }
+                    } else {
+                        for (TripDescriptor tripDescriptor : tripDescriptors) {
+                            if (stopIds.isEmpty()) {
+                                // Trip only
+                                EntitySelector.Builder selector = EntitySelector.newBuilder();
+                                selector.setTrip(tripDescriptor);
+                                serviceAlert.addInformedEntity(selector);
+                            } else {
+                                for (String stopId : stopIds) {
+                                    // One for each trip/stop combination
+                                    EntitySelector.Builder selector = EntitySelector.newBuilder();
+                                    selector.setTrip(tripDescriptor);
+                                    selector.setStopId(stopId);
+                                    serviceAlert.addInformedEntity(selector);
+                                }
+                            }
+                        }
                     }
-                } else {
-                    for (AffectedCallStructure call : stopRefs.getCallList()) {
-                        String stopId = (call.getStopPointRef().getValue());
-                        selector.setStopId(stopId);
+                }
+            }
+        }
+
+        if (affectsStructure.hasNetworks()) {
+            final AffectsScopeStructure.NetworksType networks = affectsStructure.getNetworks();
+            if (networks.getAffectedNetworkCount() > 0) {
+                for (AffectsScopeStructure.NetworksType.AffectedNetworkType affectedNetwork : networks.getAffectedNetworkList()) {
+
+                    if (affectedNetwork.getAffectedLineCount() > 0) {
+                        for (AffectedLineStructure affectedLine : affectedNetwork.getAffectedLineList()) {
+
+                            String lineRef = null;
+                            if (affectedLine.hasLineRef()) {
+                                lineRef = affectedLine.getLineRef().getValue();
+                            }
+                            if (affectedLine.hasRoutes()) {
+                                final AffectedLineStructure.RoutesType routes = affectedLine.getRoutes();
+                                if (routes.getAffectedRouteCount() > 0) {
+                                    for (AffectedRouteStructure affectedRoute : routes.getAffectedRouteList()) {
+                                        if (affectedRoute.hasStopPoints()) {
+                                            final AffectedRouteStructure.StopPointsType stopPoints = affectedRoute.getStopPoints();
+                                            if (stopPoints.getSequenceWrapperCount() > 0) {
+                                                for (AffectedRouteStructure.StopPointsType.SequenceWrapper_StopPointsType stopPoint : stopPoints.getSequenceWrapperList()) {
+                                                    if (stopPoint.hasAffectedStopPoint()) {
+                                                        EntitySelector.Builder selector = EntitySelector.newBuilder();
+                                                        if (lineRef != null) {
+                                                            selector.setRouteId(lineRef);
+                                                        }
+                                                        selector.setStopId(stopPoint.getAffectedStopPoint().getStopPointRef().getValue());
+
+                                                        serviceAlert.addInformedEntity(selector);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (affectsStructure.hasStopPlaces()) {
+            final AffectsScopeStructure.StopPlacesType stopPlaces = affectsStructure.getStopPlaces();
+            if (stopPlaces.getAffectedStopPlaceCount() > 0) {
+                for (AffectedStopPlaceStructure affectedStopPlace : stopPlaces.getAffectedStopPlaceList()) {
+                    if (affectedStopPlace.hasStopPlaceRef()) {
+                        final StopPlaceRefStructure stopPlaceRef = affectedStopPlace.getStopPlaceRef();
+
+                        EntitySelector.Builder selector = EntitySelector.newBuilder();
+                        selector.setStopId(stopPlaceRef.getValue());
                         serviceAlert.addInformedEntity(selector);
                     }
                 }
