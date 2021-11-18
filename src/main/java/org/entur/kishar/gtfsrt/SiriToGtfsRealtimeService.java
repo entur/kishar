@@ -214,6 +214,11 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(situation.getSituationNumber());
         Preconditions.checkNotNull(situation.getSituationNumber().getValue());
 
+        Preconditions.checkState(
+            !situation.getProgress().equals(WorkflowStatusEnumeration.WORKFLOW_STATUS_ENUMERATION_CLOSED),
+            "Ignore message with Progress=closed"
+        );
+
         Preconditions.checkNotNull(situation.getParticipantRef(), "datasource");
         String datasource = situation.getParticipantRef().getValue();
         Preconditions.checkNotNull(datasource, "datasource");
