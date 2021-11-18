@@ -33,7 +33,19 @@ public class GtfsRealtimeLibrary {
             GtfsRealtime.TranslatedString.Translation.Builder translation = GtfsRealtime.TranslatedString.Translation.newBuilder();
             translation.setText(value);
             if (text.getLang() != null) {
-                translation.setLanguage(text.getLang().name());
+                String language = null;
+                switch (text.getLang()) {
+                    case LANG_TYPE_NO:
+                        language = "no";
+                        break;
+                    case LANG_TYPE_SV:
+                        language = "sv";
+                        break;
+                    case LANG_TYPE_EN:
+                        language = "en";
+                        break;
+                }
+                translation.setLanguage(language);
             }
 
             GtfsRealtime.TranslatedString.Builder tsBuilder = GtfsRealtime.TranslatedString.newBuilder();
