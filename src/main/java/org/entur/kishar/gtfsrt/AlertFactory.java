@@ -38,8 +38,8 @@ public class AlertFactory {
         Alert.Builder alert = Alert.newBuilder();
 
         handleDescriptions(ptSituation, alert);
-        handleOtherFields(ptSituation, alert);
-        handlReasons(ptSituation, alert);
+        handleValidityPeriod(ptSituation, alert);
+        handleReasons(ptSituation, alert);
         handleAffects(ptSituation, alert);
         handleConsequences(ptSituation, alert);
 
@@ -60,25 +60,28 @@ public class AlertFactory {
         }
     }
 
-    private void handleOtherFields(PtSituationElementStructure ptSituation,
+    private void handleValidityPeriod(PtSituationElementStructure ptSituation,
                                    Alert.Builder serviceAlert) {
 
-        HalfOpenTimestampOutputRangeStructure window = ptSituation.getPublicationWindow();
-        if (window != null) {
-            TimeRange.Builder range = TimeRange.newBuilder();
-            if (window.getStartTime() != null) {
-                range.setStart(window.getStartTime().getSeconds());
-            }
-            if (window.getEndTime() != null) {
-                range.setEnd(window.getEndTime().getSeconds());
-            }
-            if (range.hasStart() || range.hasEnd()) {
-                serviceAlert.addActivePeriod(range);
+        if (!ptSituation.getValidityPeriodList().isEmpty()) {
+            final List<HalfOpenTimestampOutputRangeStructure> validityPeriodList = ptSituation.getValidityPeriodList();
+            for (HalfOpenTimestampOutputRangeStructure validityPeriod : validityPeriodList) {
+                TimeRange.Builder timeRange = TimeRange.newBuilder();
+                if (validityPeriod.hasStartTime()) {
+                    timeRange.setStart(validityPeriod.getStartTime().getSeconds());
+                }
+                if (validityPeriod.hasEndTime()) {
+                    timeRange.setEnd(validityPeriod.getEndTime().getSeconds());
+                }
+
+                if (timeRange.hasStart() || timeRange.hasEnd()) {
+                    serviceAlert.addActivePeriod(timeRange);
+                }
             }
         }
     }
 
-    private void handlReasons(PtSituationElementStructure ptSituation,
+    private void handleReasons(PtSituationElementStructure ptSituation,
                               Alert.Builder serviceAlert) {
 
         Cause cause = getReasonAsCause(ptSituation);
