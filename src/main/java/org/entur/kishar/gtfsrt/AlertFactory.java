@@ -340,6 +340,10 @@ public class AlertFactory {
                                         }
                                     }
                                 }
+                            } else {
+                                EntitySelector.Builder selector = EntitySelector.newBuilder();
+                                selector.setRouteId(lineRef);
+                                serviceAlert.addInformedEntity(selector);
                             }
                         }
                     }
