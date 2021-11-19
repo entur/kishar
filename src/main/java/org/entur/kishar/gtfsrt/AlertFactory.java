@@ -263,7 +263,9 @@ public class AlertFactory {
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
                         tripDescriptor.setTripId(datedVehicleJourneyRef);
                         if (dataFrameRef != null) {
-                            tripDescriptor.setStartDate(dataFrameRef.getValue());
+                            // Convert YYYY-MM-MM to YYYYMMDD
+                            String dataFrameStr = dataFrameRef.getValue().replaceAll("-","");
+                            tripDescriptor.setStartDate(dataFrameStr);
                         }
                         tripDescriptors.add(tripDescriptor.build());
                     }
