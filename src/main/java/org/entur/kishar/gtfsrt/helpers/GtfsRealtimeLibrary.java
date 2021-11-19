@@ -1,6 +1,7 @@
 package org.entur.kishar.gtfsrt.helpers;
 
 import com.google.transit.realtime.GtfsRealtime;
+import uk.org.siri.www.siri.DefaultedTextStructure;
 
 import java.util.List;
 
@@ -21,38 +22,36 @@ public class GtfsRealtimeLibrary {
             return null;
         }
 
-        if (textStructures.size() >= 1) {
-            uk.org.siri.www.siri.DefaultedTextStructure text = textStructures.get(0);
-            String value = text.getValue();
-            if (value == null) {
-                return null;
-            }
-
-            value = value.replaceAll("\\s+", " ");
-
-            GtfsRealtime.TranslatedString.Translation.Builder translation = GtfsRealtime.TranslatedString.Translation.newBuilder();
-            translation.setText(value);
-            if (text.getLang() != null) {
-                String language = null;
-                switch (text.getLang()) {
-                    case LANG_TYPE_NO:
-                        language = "no";
-                        break;
-                    case LANG_TYPE_SV:
-                        language = "sv";
-                        break;
-                    case LANG_TYPE_EN:
-                        language = "en";
-                        break;
-                }
-                if (language != null) {
-                    translation.setLanguage(language);
-                }
-            }
-
+        if (!textStructures.isEmpty()) {
             GtfsRealtime.TranslatedString.Builder tsBuilder = GtfsRealtime.TranslatedString.newBuilder();
-            tsBuilder.addTranslation(translation);
-            return tsBuilder.build();
+            for (DefaultedTextStructure text : textStructures) {
+
+                String value = text.getValue();
+                if (value == null || value.isBlank()) {
+                    continue;
+                }
+
+                value = value.replaceAll("\\s+", " ");
+
+                GtfsRealtime.TranslatedString.Translation.Builder translation = GtfsRealtime.TranslatedString.Translation.newBuilder();
+                translation.setText(value);
+                if (text.getLang() != null) {
+                    final String languageTypeStr = text.getLang().toString();
+
+                    if (languageTypeStr.startsWith("LANG_TYPE_")) {
+                        String language = languageTypeStr
+                            .substring("LANG_TYPE_".length())
+                            .toLowerCase();
+
+                        translation.setLanguage(language);
+                    }
+                }
+
+                tsBuilder.addTranslation(translation);
+            }
+            if (tsBuilder.getTranslationCount() > 0) {
+                return tsBuilder.build();
+            }
         }
         return null;
     }
