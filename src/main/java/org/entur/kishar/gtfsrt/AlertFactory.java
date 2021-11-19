@@ -232,27 +232,38 @@ public class AlertFactory {
                     }
 
                     String startDate = null;
-                    String startTime = null;
                     if (affectedVehicleJourney.hasOriginAimedDepartureTime()) {
                         final Timestamp originAimedDepartureTime = affectedVehicleJourney.getOriginAimedDepartureTime();
                         Date date = new Date(originAimedDepartureTime.getSeconds()*1000);
 
                         startDate = DATE_FORMATTER.format(date);
-                        startTime = TIME_FORMATTER.format(date);
                     }
 
-                    List<VehicleJourneyRefStructure> tripRefs = affectedVehicleJourney.getVehicleJourneyRefList();
-                    for (VehicleJourneyRefStructure tripRef : tripRefs) {
+                    if (affectedVehicleJourney.getVehicleJourneyRefCount() > 0) {
+
+                        List<VehicleJourneyRefStructure> tripRefs = affectedVehicleJourney.getVehicleJourneyRefList();
+                        for (VehicleJourneyRefStructure tripRef : tripRefs) {
+                            TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
+                            tripDescriptor.setTripId(tripRef.getValue());
+                            if (routeId != null) {
+                                tripDescriptor.setRouteId(routeId);
+                            }
+                            if (startDate != null) {
+                                tripDescriptor.setStartDate(startDate);
+                            }
+                            tripDescriptors.add(tripDescriptor.build());
+                        }
+                    }
+
+                    if (affectedVehicleJourney.hasFramedVehicleJourneyRef()){
+                        final FramedVehicleJourneyRefStructure framedVehicleJourneyRef = affectedVehicleJourney.getFramedVehicleJourneyRef();
+                        final String datedVehicleJourneyRef = framedVehicleJourneyRef.getDatedVehicleJourneyRef();
+                        final DataFrameRefStructure dataFrameRef = framedVehicleJourneyRef.getDataFrameRef();
+
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
-                        tripDescriptor.setTripId(tripRef.getValue());
-                        if (routeId != null) {
-                            tripDescriptor.setRouteId(routeId);
-                        }
-                        if (startDate != null) {
-                            tripDescriptor.setStartDate(startDate);
-                        }
-                        if (startTime != null) {
-                            tripDescriptor.setStartTime(startTime);
+                        tripDescriptor.setTripId(datedVehicleJourneyRef);
+                        if (dataFrameRef != null) {
+                            tripDescriptor.setStartDate(dataFrameRef.getValue());
                         }
                         tripDescriptors.add(tripDescriptor.build());
                     }
