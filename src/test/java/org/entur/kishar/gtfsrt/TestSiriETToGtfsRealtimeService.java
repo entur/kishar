@@ -9,6 +9,7 @@ import com.google.transit.realtime.GtfsRealtime;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.junit.Test;
+import org.junit.runners.model.InvalidTestClassError;
 import uk.org.siri.www.siri.*;
 
 import java.io.IOException;
@@ -63,6 +64,62 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
         entityList = feedMessage.getEntityList();
         assertFalse(entityList.isEmpty());
+
+        byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
+        assertEquals(feedMessage, byteArrayFeedMessage);
+
+    }
+
+    @Test
+    public void testAsyncGtfsRtProductionWithoutEstimates() throws IOException {
+        String lineRefValue = "TST:Line:1234";
+        int stopCount = 5;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String datasource = "RUT";
+
+        SiriType siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, null), datedVehicleJourneyRef, datasource);
+
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
+
+        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+
+        // GTFS-RT is produced asynchronously - should be empty at first
+
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertTrue(entityList.isEmpty());
+
+        // Assert json and binary format
+        GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
+        assertEquals(feedMessage, byteArrayFeedMessage);
+
+        rtService.writeOutput();
+
+        tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+
+
+        feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        GtfsRealtime.TripUpdate tripUpdate = entityList.get(0).getTripUpdate();
+        assertNotNull(tripUpdate);
+
+        List<GtfsRealtime.TripUpdate.StopTimeUpdate> stopTimeUpdateList = tripUpdate.getStopTimeUpdateList();
+        for (GtfsRealtime.TripUpdate.StopTimeUpdate stopTimeUpdate : stopTimeUpdateList) {
+            if (stopTimeUpdate.hasArrival()) {
+                assertFalse(stopTimeUpdate.getArrival().getDelay() < 0);
+            }
+            if (stopTimeUpdate.hasDeparture()) {
+                assertFalse(stopTimeUpdate.getDeparture().getDelay() < 0);
+            }
+        }
 
         byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getTripUpdates(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
@@ -366,7 +423,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
 
-    private List<? extends EstimatedCallStructure> createEstimatedCalls(int stopCount, int addedDelayPerStop) {
+    private List<? extends EstimatedCallStructure> createEstimatedCalls(int stopCount, Integer addedDelayPerStop) {
         List<EstimatedCallStructure> calls = new ArrayList<>();
         Timestamp startTime = SiriLibrary.getCurrentTime();
 
@@ -382,12 +439,17 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
             startTime = Timestamps.add(startTime, Duration.newBuilder().setSeconds(60).build());
             if (i > 0) {
                 call.setAimedArrivalTime(startTime);
-                Timestamp expected = Timestamps.add(startTime, Duration.newBuilder().setSeconds(addedDelayPerStop).build());
-                call.setExpectedArrivalTime(expected);
+                if (addedDelayPerStop != null) {
+                    Timestamp expected = Timestamps.add(startTime, Duration.newBuilder().setSeconds(addedDelayPerStop).build());
+                    call.setExpectedArrivalTime(expected);
+                }
             }
             if (i < stopCount-1) {
                 call.setAimedDepartureTime(startTime);
-                call.setExpectedDepartureTime(Timestamps.add(startTime, Duration.newBuilder().setSeconds(addedDelayPerStop).build()));
+
+                if (addedDelayPerStop != null) {
+                    call.setExpectedDepartureTime(Timestamps.add(startTime, Duration.newBuilder().setSeconds(addedDelayPerStop).build()));
+                }
             }
             calls.add(call.build());
         }

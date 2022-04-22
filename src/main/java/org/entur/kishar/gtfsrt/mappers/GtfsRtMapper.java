@@ -249,11 +249,29 @@ public class GtfsRtMapper {
                 Integer departureDelayInSeconds = null;
 
                 if (recordedCall.hasAimedArrivalTime()) {
-                    arrivalDelayInSeconds = calculateDiff(recordedCall.getAimedArrivalTime(), recordedCall.getActualArrivalTime());
+                    Timestamp updatedArrivalTime = null;
+                    if (recordedCall.hasActualArrivalTime()) {
+                        updatedArrivalTime = recordedCall.getActualArrivalTime();
+                    } else if (recordedCall.hasExpectedArrivalTime()) {
+                        updatedArrivalTime = recordedCall.getExpectedArrivalTime();
+                    }
+                    if (updatedArrivalTime != null) {
+                        arrivalDelayInSeconds = calculateDiff(recordedCall.getAimedArrivalTime(), updatedArrivalTime);
+                    }
                 }
 
                 if (recordedCall.hasAimedDepartureTime()) {
-                    departureDelayInSeconds = calculateDiff(recordedCall.getAimedDepartureTime(), recordedCall.getActualDepartureTime());
+
+                    Timestamp updatedDepartureTime = null;
+                    if (recordedCall.hasActualDepartureTime()) {
+                        updatedDepartureTime = recordedCall.getActualDepartureTime();
+                    } else if (recordedCall.hasExpectedDepartureTime()) {
+                        updatedDepartureTime = recordedCall.getExpectedDepartureTime();
+                    }
+
+                    if (updatedDepartureTime != null) {
+                        departureDelayInSeconds = calculateDiff(recordedCall.getAimedDepartureTime(), updatedDepartureTime);
+                    }
                 }
 
                 int stopSequence;
@@ -278,13 +296,12 @@ public class GtfsRtMapper {
                 Integer arrivalDelayInSeconds = null;
                 Integer departureDelayInSeconds = null;
 
-                if (estimatedCall.hasAimedArrivalTime()){
+                if (estimatedCall.hasAimedArrivalTime() && estimatedCall.hasExpectedArrivalTime()){
                     arrivalDelayInSeconds = calculateDiff(estimatedCall.getAimedArrivalTime(), estimatedCall.getExpectedArrivalTime());
                 }
-                if (estimatedCall.hasAimedDepartureTime()) {
+                if (estimatedCall.hasAimedDepartureTime() && estimatedCall.hasExpectedDepartureTime()) {
                     departureDelayInSeconds = calculateDiff(estimatedCall.getAimedDepartureTime(), estimatedCall.getExpectedDepartureTime());
                 }
-
 
                 int stopSequence;
                 if (estimatedCall.getOrder() > 0) {
