@@ -27,7 +27,8 @@ public class RestRouteBuilder extends RouteBuilder {
     @Override
     public void configure() {
 
-        restConfiguration("jetty")
+        restConfiguration()
+                .component("jetty")
                 .port(portNumber);
 
     }

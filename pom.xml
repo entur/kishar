@@ -33,10 +33,11 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>2.4.1</spring-boot-plugin.version>
-        <spring-boot.version>2.4.1</spring-boot.version>
+        <spring-boot-plugin.version>2.6.6</spring-boot-plugin.version>
+        <spring-boot.version>2.6.6</spring-boot.version>
 
-        <camel-version>2.24.2</camel-version>
+        <camel-version>3.16.0</camel-version>
+        <entur.helpers.version>1.0.62</entur.helpers.version>
     </properties>
 
     <distributionManagement>
@@ -50,6 +51,20 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.apache.camel</groupId>
+                <artifactId>camel-bom</artifactId>
+                <version>${camel-version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.camel.springboot</groupId>
+                <artifactId>camel-spring-boot-dependencies</artifactId>
+                <version>${camel-version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
                 <!-- Import dependency management from Spring Boot -->
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -57,8 +72,14 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>org.entur.helpers</groupId>
+                <artifactId>camel3-entur-google-pubsub</artifactId>
+                <version>${entur.helpers.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
+
 
     <dependencies>
 
@@ -76,6 +97,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.camel.springboot</groupId>
+            <artifactId>camel-spring-boot-starter</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
@@ -103,14 +130,14 @@
 
         <dependency>
             <groupId>org.apache.camel</groupId>
-            <artifactId>camel-http4</artifactId>
+            <artifactId>camel-http</artifactId>
             <version>${camel-version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.entur.helpers</groupId>
-            <artifactId>camel-entur-google-pubsub</artifactId>
-            <version>1.0.22</version>
+            <artifactId>camel3-entur-google-pubsub</artifactId>
+            <version>${entur.helpers.version}</version>
         </dependency>
 
         <dependency>
@@ -121,15 +148,10 @@
 
         <dependency>
             <groupId>org.apache.camel</groupId>
-            <artifactId>camel-jetty9</artifactId>
+            <artifactId>camel-jetty</artifactId>
             <version>${camel-version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.camel</groupId>
-            <artifactId>camel-spring-boot</artifactId>
-            <version>${camel-version}</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-spring</artifactId>
