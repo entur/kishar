@@ -1,5 +1,11 @@
 version: 2
 aliases:
+  - &jfrog-login
+    name: Rename jfrog environment variable for maven setting.xml
+    command: |
+      echo "export JFROG_USER=$ARTIFACTORY_USER"  >> $BASH_ENV
+      echo "export JFROG_PASS=$ARTIFACTORY_PASSWORD"  >> $BASH_ENV
+
   - &post_build
     name: Trigger downstream builds
     command: |
@@ -19,6 +25,7 @@ jobs:
     - checkout
     - restore_cache:
         key: dep-cache-{{ checksum "pom.xml" }}
+    - run: *jfrog-login
     - run: mvn org.apache.maven.plugins:maven-dependency-plugin:3.1.0:go-offline -s /tools/m2/settings.xml
     - save_cache:
         paths:
@@ -42,7 +49,7 @@ workflows:
   build_test_deploy:
     jobs:
     - build:
-        context: dev
+        context: global
         filters:
           branches:
             only: master
