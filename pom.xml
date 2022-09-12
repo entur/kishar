@@ -19,9 +19,9 @@
 
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.rutebanken.superpom</groupId>
+        <groupId>org.entur.ror</groupId>
         <artifactId>superpom</artifactId>
-        <version>0.0.6</version>
+        <version>1.0.43</version>
     </parent>
 
 
@@ -36,17 +36,9 @@
         <spring-boot-plugin.version>2.6.6</spring-boot-plugin.version>
         <spring-boot.version>2.6.6</spring-boot.version>
 
-        <camel-version>3.16.0</camel-version>
-        <entur.helpers.version>1.0.62</entur.helpers.version>
+        <camel-version>3.18.0</camel-version>
+        <entur.helpers.version>1.83</entur.helpers.version>
     </properties>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>entur2-snapshots</name>
-            <url>https://entur2.jfrog.io/entur2/libs-snapshot-local</url>
-        </snapshotRepository>
-    </distributionManagement>
 
     <dependencyManagement>
         <dependencies>
@@ -73,7 +65,7 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
-                <groupId>org.entur.helpers</groupId>
+                <groupId>org.entur.ror.helpers</groupId>
                 <artifactId>camel3-entur-google-pubsub</artifactId>
                 <version>${entur.helpers.version}</version>
             </dependency>
@@ -135,7 +127,7 @@
         </dependency>
 
         <dependency>
-            <groupId>org.entur.helpers</groupId>
+            <groupId>org.entur.ror.helpers</groupId>
             <artifactId>camel3-entur-google-pubsub</artifactId>
             <version>${entur.helpers.version}</version>
         </dependency>
