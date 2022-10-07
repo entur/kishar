@@ -33,10 +33,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>2.6.6</spring-boot-plugin.version>
-        <spring-boot.version>2.6.6</spring-boot.version>
+        <spring-boot-plugin.version>2.7.4</spring-boot-plugin.version>
+        <spring-boot.version>2.7.4</spring-boot.version>
 
-        <camel-version>3.18.0</camel-version>
+        <camel-version>3.19.0</camel-version>
         <entur.helpers.version>1.83</entur.helpers.version>
     </properties>
 
@@ -98,7 +98,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.13.0</version>
+            <version>3.21.7</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
