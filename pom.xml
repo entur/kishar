@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.entur.ror</groupId>
         <artifactId>superpom</artifactId>
-        <version>1.0.43</version>
+        <version>1.48</version>
     </parent>
 
 
@@ -33,11 +33,11 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>2.7.4</spring-boot-plugin.version>
-        <spring-boot.version>2.7.4</spring-boot.version>
+        <spring-boot-plugin.version>2.7.5</spring-boot-plugin.version>
+        <spring-boot.version>2.7.5</spring-boot.version>
 
         <camel-version>3.19.0</camel-version>
-        <entur.helpers.version>1.83</entur.helpers.version>
+        <entur.helpers.version>1.87</entur.helpers.version>
     </properties>
 
     <dependencyManagement>
@@ -83,6 +83,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <dependency>
@@ -117,7 +118,7 @@
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson</artifactId>
-            <version>3.14.1</version>
+            <version>3.17.7</version>
         </dependency>
 
         <dependency>
@@ -153,7 +154,7 @@
         <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
-            <version>6.3</version>
+            <version>7.2</version>
         </dependency>
 
         <dependency>
