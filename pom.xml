@@ -37,7 +37,7 @@
         <spring-boot.version>2.7.5</spring-boot.version>
 
         <camel-version>3.19.0</camel-version>
-        <entur.helpers.version>1.87</entur.helpers.version>
+        <entur.helpers.version>1.86</entur.helpers.version>
     </properties>
 
     <dependencyManagement>
