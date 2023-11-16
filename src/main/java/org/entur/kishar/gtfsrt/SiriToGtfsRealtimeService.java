@@ -34,7 +34,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import uk.org.siri.www.siri.*;
 
-import java.io.IOException;
 import java.util.*;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
@@ -213,11 +212,6 @@ public class SiriToGtfsRealtimeService {
     private void checkPreconditions(PtSituationElementStructure situation) {
         Preconditions.checkNotNull(situation.getSituationNumber());
         Preconditions.checkNotNull(situation.getSituationNumber().getValue());
-
-        Preconditions.checkState(
-            !situation.getProgress().equals(WorkflowStatusEnumeration.WORKFLOW_STATUS_ENUMERATION_CLOSED),
-            "Ignore message with Progress=closed"
-        );
 
         Preconditions.checkNotNull(situation.getParticipantRef(), "datasource");
         String datasource = situation.getParticipantRef().getValue();
