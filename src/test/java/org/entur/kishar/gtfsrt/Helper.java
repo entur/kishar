@@ -1,6 +1,11 @@
 package org.entur.kishar.gtfsrt;
 
-import uk.org.siri.www.siri.*;
+import org.entur.avro.realtime.siri.model.FramedVehicleJourneyRefRecord;
+import org.entur.avro.realtime.siri.model.InfoLinkRecord;
+import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
+import org.entur.avro.realtime.siri.model.TranslatedStringRecord;
+
+import java.util.List;
 
 public class Helper {
 
@@ -8,62 +13,46 @@ public class Helper {
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
 
-    static PtSituationElementStructure createPtSituationElement(String datasource) {
+    static PtSituationElementRecord createPtSituationElement(String datasource) {
 
-        EntryQualifierStructure situationNumber = EntryQualifierStructure.newBuilder()
-                .setValue(situationNumberValue)
-                .build();
+        String situationNumber =situationNumberValue;
 
-        DefaultedTextStructure summary = DefaultedTextStructure.newBuilder()
+        TranslatedStringRecord summary = TranslatedStringRecord.newBuilder()
                 .setValue(summaryValue)
                 .build();
 
-        DefaultedTextStructure description = DefaultedTextStructure.newBuilder()
+        TranslatedStringRecord description = TranslatedStringRecord.newBuilder()
                 .setValue(descriptionValue)
                 .build();
 
-        ParticipantRefStructure requestorRef = ParticipantRefStructure.newBuilder()
-                .setValue(datasource)
-                .build();
+        String requestorRef = datasource;
 
-        PtSituationElementStructure.InfoLinksType infoLinksType = PtSituationElementStructure.InfoLinksType
+        InfoLinkRecord infoLinksType = InfoLinkRecord
             .newBuilder()
-            .addInfoLink(InfoLinkStructure.newBuilder()
                 .setUri("http://www.example.com")
                 .build()
-            )
-            .build();
+            ;
 
-        PtSituationElementStructure ptSituation = PtSituationElementStructure.newBuilder()
+        PtSituationElementRecord ptSituation = PtSituationElementRecord.newBuilder()
                 .setSituationNumber(situationNumber)
-                .addSummary(summary)
-                .addDescription(description)
+                .setSummaries(List.of(summary))
+                .setDescriptions(List.of(description))
                 .setParticipantRef(requestorRef)
-                .setInfoLinks(infoLinksType)
+                .setInfoLinks(List.of(infoLinksType))
                 .build();
-
 
         return ptSituation;
     }
 
-    static FramedVehicleJourneyRefStructure createFramedVehicleJourneyRefStructure(String datedVehicleJourneyRef) {
+    static FramedVehicleJourneyRefRecord createFramedVehicleJourneyRefStructure(String datedVehicleJourneyRef) {
         if (datedVehicleJourneyRef == null) {
             return null;
         }
 
-        DataFrameRefStructure dataFrameRef = DataFrameRefStructure.newBuilder()
-                .setValue("2018-12-12")
-                .build();
-
-        return FramedVehicleJourneyRefStructure.newBuilder()
+        return FramedVehicleJourneyRefRecord.newBuilder()
                 .setDatedVehicleJourneyRef(datedVehicleJourneyRef)
-                .setDataFrameRef(dataFrameRef)
+                .setDataFrameRef("2018-12-12")
                 .build();
     }
 
-    static LineRefStructure createLineRef(String lineRefValue) {
-        return LineRefStructure.newBuilder()
-                .setValue(lineRefValue)
-                .build();
-    }
 }

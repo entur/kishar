@@ -2,6 +2,9 @@ package org.entur.kishar.routes;
 
 
 import org.apache.camel.builder.RouteBuilder;
+import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
+import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -11,13 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
-import uk.org.siri.www.siri.SiriType;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.entur.kishar.routes.helpers.MqttHelper.buildTopic;
-
 
 @Service
 @Configuration
@@ -74,10 +74,11 @@ public class PubSubRoute extends RouteBuilder {
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
-                        final SiriType siri = SiriType.parseFrom(data);
-                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(siri);
-                        p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
+                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(
+                                EstimatedVehicleJourneyRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                        );
+                        p.getMessage().setBody(body);
+                        p.getMessage().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
@@ -91,10 +92,11 @@ public class PubSubRoute extends RouteBuilder {
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
-                        final SiriType siri = SiriType.parseFrom(data);
-                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(siri);
-                        p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
+                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(
+                                VehicleActivityRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                        );
+                        p.getMessage().setBody(body);
+                        p.getMessage().setHeaders(p.getIn().getHeaders());
                     })
             ;
 
@@ -102,19 +104,20 @@ public class PubSubRoute extends RouteBuilder {
                     .process( p -> {
                         final Map<String, GtfsRtData> vehiclePosition = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
-                        p.getOut().setBody(vehiclePosition.keySet());
-                        p.getOut().setHeaders(p.getIn().getHeaders());
-                        p.getOut().setHeader("map", vehiclePosition);
+                        p.getMessage().setBody(vehiclePosition.keySet());
+                        p.getMessage().setHeaders(p.getIn().getHeaders());
+                        p.getMessage().setHeader("map", vehiclePosition);
                     })
             ;
 
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
                         final byte[] data = (byte[]) p.getIn().getBody();
-                        final SiriType siri = SiriType.parseFrom(data);
-                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(siri);
-                        p.getOut().setBody(body);
-                        p.getOut().setHeaders(p.getIn().getHeaders());
+                        Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(
+                                PtSituationElementRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                        );
+                        p.getMessage().setBody(body);
+                        p.getMessage().setHeaders(p.getIn().getHeaders());
                     })
             ;
 

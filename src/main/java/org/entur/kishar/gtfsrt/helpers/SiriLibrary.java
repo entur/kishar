@@ -14,24 +14,21 @@
  */
 package org.entur.kishar.gtfsrt.helpers;
 
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 
 public class SiriLibrary {
 
-    public static Timestamp getCurrentTime() {
-        long millis = System.currentTimeMillis();
-        Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
-                .setNanos((int) ((millis % 1000) * 1000000)).build();
-        return timestamp;
+    public static ZonedDateTime getCurrentTime() {
+       return ZonedDateTime.now();
     }
 
-    public static Timestamp getLatestTimestamp(Timestamp t1, Timestamp t2) {
+    public static Instant getLatestTimestamp(Instant t1, Instant t2) {
         if (t1 == null) {
             return t2;
         } else if (t2 == null) {
             return t1;
-        } else if (Timestamps.compare(t1, t2) < 0) {
+        } else if (t2.isAfter(t1)) {
             return t2;
         } else {
             return t1;

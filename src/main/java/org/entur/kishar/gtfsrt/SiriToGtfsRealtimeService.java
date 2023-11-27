@@ -18,9 +18,25 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
-import com.google.transit.realtime.GtfsRealtime.*;
+import com.google.transit.realtime.GtfsRealtime.Alert;
+import com.google.transit.realtime.GtfsRealtime.FeedEntity;
+import com.google.transit.realtime.GtfsRealtime.FeedMessage;
+import com.google.transit.realtime.GtfsRealtime.TripUpdate;
+import com.google.transit.realtime.GtfsRealtime.VehiclePosition;
+import org.entur.avro.realtime.siri.model.EstimatedCallRecord;
+import org.entur.avro.realtime.siri.model.EstimatedJourneyVersionFrameRecord;
+import org.entur.avro.realtime.siri.model.EstimatedTimetableDeliveryRecord;
+import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.FramedVehicleJourneyRefRecord;
+import org.entur.avro.realtime.siri.model.MonitoredVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
+import org.entur.avro.realtime.siri.model.RecordedCallRecord;
+import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
+import org.entur.avro.realtime.siri.model.SiriRecord;
+import org.entur.avro.realtime.siri.model.SituationExchangeDeliveryRecord;
+import org.entur.avro.realtime.siri.model.ValidityPeriodRecord;
+import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
+import org.entur.avro.realtime.siri.model.VehicleMonitoringDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
@@ -32,11 +48,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
-import uk.org.siri.www.siri.*;
 
-import java.util.*;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
+import static org.entur.kishar.gtfsrt.mappers.AvroHelper.getInstant;
 
 @Service
 @Configuration
@@ -158,15 +177,15 @@ public class SiriToGtfsRealtimeService {
         return null;
     }
 
-    private void checkPreconditions(VehicleActivityStructure vehicleActivity) {
+    private void checkPreconditions(VehicleActivityRecord vehicleActivity) {
         checkPreconditions(vehicleActivity, true);
     }
 
-    private void checkPreconditions(VehicleActivityStructure vehicleActivity, boolean countMetric) {
+    private void checkPreconditions(VehicleActivityRecord vehicleActivity, boolean countMetric) {
 
-        Preconditions.checkState(vehicleActivity.hasMonitoredVehicleJourney(), "MonitoredVehicleJourney");
+        Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
-        String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
+        String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
 
         if (countMetric && prometheusMetricsService != null) {
@@ -181,17 +200,17 @@ public class SiriToGtfsRealtimeService {
             Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
 
-        Preconditions.checkState(vehicleActivity.getMonitoredVehicleJourney().hasFramedVehicleJourneyRef());
+        Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
         checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
 
     }
 
-    private void checkPreconditions(EstimatedVehicleJourneyStructure estimatedVehicleJourney) {
+    private void checkPreconditions(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
-        Preconditions.checkState(estimatedVehicleJourney.hasFramedVehicleJourneyRef());
+        Preconditions.checkNotNull(estimatedVehicleJourney.getFramedVehicleJourneyRef());
         checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
 
-        String datasource = estimatedVehicleJourney.getDataSource();
+        String datasource = estimatedVehicleJourney.getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
             if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource)) {
@@ -206,15 +225,14 @@ public class SiriToGtfsRealtimeService {
         }
 
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
-        Preconditions.checkState(estimatedVehicleJourney.getEstimatedCalls().getEstimatedCallCount() > 0, "EstimatedCalls not empty");
+        Preconditions.checkState(!estimatedVehicleJourney.getEstimatedCalls().isEmpty(), "EstimatedCalls not empty");
     }
 
-    private void checkPreconditions(PtSituationElementStructure situation) {
+    private void checkPreconditions(PtSituationElementRecord situation) {
         Preconditions.checkNotNull(situation.getSituationNumber());
-        Preconditions.checkNotNull(situation.getSituationNumber().getValue());
 
         Preconditions.checkNotNull(situation.getParticipantRef(), "datasource");
-        String datasource = situation.getParticipantRef().getValue();
+        String datasource = situation.getParticipantRef().toString();
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
             if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty() && !datasourceSXWhitelist.contains(datasource)) {
@@ -229,27 +247,26 @@ public class SiriToGtfsRealtimeService {
         }
     }
 
-    private void checkPreconditions(FramedVehicleJourneyRefStructure fvjRef) {
-        Preconditions.checkState(fvjRef.hasDataFrameRef(),"DataFrameRef");
-        Preconditions.checkNotNull(fvjRef.getDataFrameRef().getValue(),"DataFrameRef");
+    private void checkPreconditions(FramedVehicleJourneyRefRecord fvjRef) {
+        Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
         Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
     }
 
-    private TripAndVehicleKey getKey(VehicleActivityStructure vehicleActivity) {
+    private TripAndVehicleKey getKey(VehicleActivityRecord vehicleActivity) {
 
-        VehicleActivityStructure.MonitoredVehicleJourneyType mvj = vehicleActivity.getMonitoredVehicleJourney();
+        MonitoredVehicleJourneyRecord mvj = vehicleActivity.getMonitoredVehicleJourney();
 
-        return getTripAndVehicleKey(mvj.hasVehicleRef() ? mvj.getVehicleRef() : null, mvj.getFramedVehicleJourneyRef());
+        return getTripAndVehicleKey(mvj.getVehicleRef(), mvj.getFramedVehicleJourneyRef());
     }
 
-    private TripAndVehicleKey getTripAndVehicleKey(VehicleRefStructure vehicleRef, FramedVehicleJourneyRefStructure fvjRef) {
+    private TripAndVehicleKey getTripAndVehicleKey(CharSequence vehicleRef, FramedVehicleJourneyRefRecord fvjRef) {
         String vehicle = null;
-        if (vehicleRef != null && vehicleRef.getValue() != null) {
-            vehicle = vehicleRef.getValue();
+        if (vehicleRef != null) {
+            vehicle = vehicleRef.toString();
         }
 
         return TripAndVehicleKey.fromTripIdServiceDateAndVehicleId(
-                fvjRef.getDatedVehicleJourneyRef(), fvjRef.getDataFrameRef().getValue(), vehicle);
+                fvjRef.getDatedVehicleJourneyRef().toString(), fvjRef.getDataFrameRef().toString(), vehicle);
     }
 
     public void writeOutput() {
@@ -310,15 +327,15 @@ public class SiriToGtfsRealtimeService {
         return feedMessageMap;
     }
 
-    private String getTripIdForEstimatedVehicleJourney(EstimatedVehicleJourneyStructure mvj) {
+    private String getTripIdForEstimatedVehicleJourney(EstimatedVehicleJourneyRecord mvj) {
         StringBuilder b = new StringBuilder();
-        FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
+        FramedVehicleJourneyRefRecord fvjRef = mvj.getFramedVehicleJourneyRef();
         b.append((fvjRef.getDatedVehicleJourneyRef()));
         b.append('-');
-        b.append(fvjRef.getDataFrameRef().getValue());
-        if (mvj.hasVehicleRef() && mvj.getVehicleRef().getValue() != null) {
+        b.append(fvjRef.getDataFrameRef());
+        if (mvj.getVehicleRef() != null) {
             b.append('-');
-            b.append(mvj.getVehicleRef().getValue());
+            b.append(mvj.getVehicleRef());
         }
         return b.toString();
     }
@@ -426,48 +443,40 @@ public class SiriToGtfsRealtimeService {
         this.alertsByDatasource = alertsByDatasource;
     }
 
-    public Map<String, GtfsRtData> convertSiriVmToGtfsRt(SiriType siri) {
+    public Map<String, GtfsRtData> convertSiriVmToGtfsRt(VehicleActivityRecord activity) {
 
         Map<String, GtfsRtData> result = Maps.newHashMap();
 
-        if (siri == null) {
-            return result;
-        }
-        ServiceDeliveryType serviceDelivery = siri.getServiceDelivery();
-        if (serviceDelivery != null && serviceDelivery.getVehicleMonitoringDeliveryCount() > 0) {
-            for (VehicleMonitoringDeliveryStructure deliveryStructure : serviceDelivery.getVehicleMonitoringDeliveryList()) {
-                if (deliveryStructure != null && deliveryStructure.getVehicleActivityCount() > 0) {
-                    for (VehicleActivityStructure activity : deliveryStructure.getVehicleActivityList()) {
-                        try {
-                            checkPreconditions(activity);
-                            VehiclePosition.Builder builder = gtfsMapper.convertSiriToGtfsRt(activity);
-                            if (builder.getTimestamp() <= 0) {
-                                builder.setTimestamp(System.currentTimeMillis());
-                            }
-
-                            FeedEntity.Builder entity = FeedEntity.newBuilder();
-                            String key = getVehicleIdForKey(getKey(activity));
-                            entity.setId(key);
-
-                            entity.setVehicle(builder);
-
-                            Duration timeToLive;
-                            if (activity.hasValidUntilTime()) {
-                                timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), activity.getValidUntilTime());
-                            } else {
-                                timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
-                            }
-
-                            result.put(new CompositeKey(key, activity.getMonitoredVehicleJourney().getDataSource()).asString(),
-                                    new GtfsRtData(entity.build().toByteArray(), timeToLive));
-                        } catch (Exception e) {
-                            //LOG.debug("Failed parsing vehicle activity", e);
-                        }
-                    }
-
-                }
+        if (activity != null) {
+            try {
+                checkPreconditions(activity);
+            } catch (Exception e) {
+               return result;
             }
+            VehiclePosition.Builder builder = gtfsMapper.convertSiriToGtfsRt(activity);
+            if (builder.getTimestamp() <= 0) {
+                builder.setTimestamp(System.currentTimeMillis());
+            }
+
+            FeedEntity.Builder entity = FeedEntity.newBuilder();
+            String key = getVehicleIdForKey(getKey(activity));
+            entity.setId(key);
+
+            entity.setVehicle(builder);
+
+            Duration timeToLive;
+            if (activity.getValidUntilTime() != null) {
+                timeToLive = Duration.newBuilder().setSeconds(
+                        getInstant(activity.getValidUntilTime()).getEpochSecond() - Instant.now().getEpochSecond()
+                ).build();
+            } else {
+                timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
+            }
+
+            result.put(new CompositeKey(key,activity.getMonitoredVehicleJourney().getDataSource().toString()).asString(),
+                    new GtfsRtData(entity.build().toByteArray(), timeToLive));
         }
+
         return result;
     }
 
@@ -475,73 +484,108 @@ public class SiriToGtfsRealtimeService {
         redisService.writeGtfsRt(vehiclePositions, RedisService.Type.VEHICLE_POSITION);
     }
 
-    public Map<String, GtfsRtData> convertSiriEtToGtfsRt(SiriType siri) {
-
-
+    public Map<String, GtfsRtData> convertSiriToGtfsRt(SiriRecord siri) {
         Map<String, GtfsRtData> result = Maps.newHashMap();
-
-        if (siri == null) {
-            return result;
-        }
-        ServiceDeliveryType serviceDelivery = siri.getServiceDelivery();
-        if (serviceDelivery != null && serviceDelivery.getEstimatedTimetableDeliveryCount() > 0) {
-            for (EstimatedTimetableDeliveryStructure estimatedTimetableDeliveryStructure : serviceDelivery.getEstimatedTimetableDeliveryList()) {
-                if (estimatedTimetableDeliveryStructure != null && estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrameCount() > 0) {
-                    for (EstimatedVersionFrameStructure estimatedVersionFrameStructure : estimatedTimetableDeliveryStructure.getEstimatedJourneyVersionFrameList()) {
-                        if (estimatedVersionFrameStructure != null && estimatedVersionFrameStructure.getEstimatedVehicleJourneyCount() > 0) {
-                            for (EstimatedVehicleJourneyStructure estimatedVehicleJourney : estimatedVersionFrameStructure.getEstimatedVehicleJourneyList()) {
-                                if (estimatedVehicleJourney != null) {
-                                    try {
-                                        checkPreconditions(estimatedVehicleJourney);
-                                        TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
-
-                                        FeedEntity.Builder entity = FeedEntity.newBuilder();
-                                        String key = getTripIdForEstimatedVehicleJourney(estimatedVehicleJourney);
-                                        entity.setId(key);
-
-                                        entity.setTripUpdate(builder);
-
-                                        Timestamp expirationTime = null;
-                                        for (RecordedCallStructure recordedCall : estimatedVehicleJourney.getRecordedCalls().getRecordedCallList()) {
-                                            if (recordedCall.hasExpectedArrivalTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, recordedCall.getExpectedArrivalTime());
-                                            } else if (recordedCall.hasAimedArrivalTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, recordedCall.getAimedArrivalTime());
-                                            } else if (recordedCall.hasExpectedDepartureTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, recordedCall.getExpectedDepartureTime());
-                                            } else if (recordedCall.hasAimedDepartureTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, recordedCall.getAimedDepartureTime());
-                                            }
-                                        }
-                                        for (EstimatedCallStructure estimatedCall : estimatedVehicleJourney.getEstimatedCalls().getEstimatedCallList()) {
-                                            if (estimatedCall.hasExpectedArrivalTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, estimatedCall.getExpectedArrivalTime());
-                                            } else if (estimatedCall.hasAimedArrivalTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, estimatedCall.getAimedArrivalTime());
-                                            } else if (estimatedCall.hasExpectedDepartureTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, estimatedCall.getExpectedDepartureTime());
-                                            } else if (estimatedCall.hasAimedDepartureTime()) {
-                                                expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, estimatedCall.getAimedDepartureTime());
-                                            }
-                                        }
-                                        Duration timeToLive;
-                                        if (expirationTime == null) {
-                                            timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
-                                        } else {
-                                            timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), expirationTime);
-                                        }
-
-                                        result.put(new CompositeKey(key, estimatedVehicleJourney.getDataSource()).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
-                                    } catch (Exception e) {
-                                        //LOG.debug("Failed parsing trip updates", e);
-                                    }
-                                }
-                            }
+        if (siri != null &&
+                siri.getServiceDelivery() != null) {
+            ServiceDeliveryRecord serviceDelivery = siri.getServiceDelivery();
+            // ET
+            if (serviceDelivery.getEstimatedTimetableDeliveries() != null &&
+                    !serviceDelivery.getEstimatedTimetableDeliveries().isEmpty()) {
+                for (EstimatedTimetableDeliveryRecord delivery : serviceDelivery.getEstimatedTimetableDeliveries()) {
+                    for (EstimatedJourneyVersionFrameRecord estimatedJourneyVersionFrame : delivery.getEstimatedJourneyVersionFrames()) {
+                        for (EstimatedVehicleJourneyRecord estimatedVehicleJourney : estimatedJourneyVersionFrame.getEstimatedVehicleJourneys()) {
+                            result.putAll(convertSiriEtToGtfsRt(estimatedVehicleJourney));
                         }
                     }
                 }
             }
+
+            // VM
+            if (serviceDelivery.getVehicleMonitoringDeliveries() != null &&
+                    !serviceDelivery.getVehicleMonitoringDeliveries().isEmpty()) {
+                for (VehicleMonitoringDeliveryRecord estimatedTimetableDelivery : serviceDelivery.getVehicleMonitoringDeliveries()) {
+                    for (VehicleActivityRecord vehicleActivityRecord : estimatedTimetableDelivery.getVehicleActivities()) {
+                        result.putAll(convertSiriVmToGtfsRt(vehicleActivityRecord));
+                    }
+                }
+            }
+
+            // SX
+            if (serviceDelivery.getSituationExchangeDeliveries() != null &&
+                    !serviceDelivery.getSituationExchangeDeliveries().isEmpty()) {
+                for (SituationExchangeDeliveryRecord estimatedTimetableDelivery : serviceDelivery.getSituationExchangeDeliveries()) {
+                    for (PtSituationElementRecord situation : estimatedTimetableDelivery.getSituations()) {
+                        result.putAll(convertSiriSxToGtfsRt(situation));
+                    }
+                }
+            }
         }
+        return result;
+    }
+    public Map<String, GtfsRtData> convertSiriEtToGtfsRt(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
+
+
+        Map<String, GtfsRtData> result = Maps.newHashMap();
+
+        if (estimatedVehicleJourney != null) {
+            try {
+                checkPreconditions(estimatedVehicleJourney);
+                TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
+
+                FeedEntity.Builder entity = FeedEntity.newBuilder();
+                String key = getTripIdForEstimatedVehicleJourney(estimatedVehicleJourney);
+                entity.setId(key);
+
+                entity.setTripUpdate(builder);
+
+                Instant expirationTime = null;
+                for (RecordedCallRecord call : estimatedVehicleJourney.getRecordedCalls()) {
+                    if (call.getActualArrivalTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getActualArrivalTime()));
+                    } else if (call.getExpectedArrivalTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getExpectedArrivalTime()));
+                    } else if (call.getAimedArrivalTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getAimedArrivalTime()));
+                    } else if (call.getActualDepartureTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getActualDepartureTime()));
+                    } else if (call.getExpectedDepartureTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getExpectedDepartureTime()));
+                    }else if (call.getAimedDepartureTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getAimedDepartureTime()));
+                    }
+                }
+                for (EstimatedCallRecord call : estimatedVehicleJourney.getEstimatedCalls()) {
+                    if (call.getExpectedArrivalTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getExpectedArrivalTime()));
+                    } else if (call.getAimedArrivalTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getAimedArrivalTime()));
+                    } else if (call.getExpectedDepartureTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getExpectedDepartureTime()));
+                    }else if (call.getAimedDepartureTime() != null) {
+                        expirationTime = SiriLibrary.getLatestTimestamp(expirationTime, getInstant(call.getAimedDepartureTime()));
+                    }
+                }
+
+                Duration timeToLive;
+                if (expirationTime == null) {
+                    timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
+                } else {
+                    timeToLive = Duration.newBuilder().setSeconds(
+                            expirationTime.getEpochSecond() - Instant.now().getEpochSecond()
+                    ).build();
+                }
+
+                result.put(
+                        new CompositeKey(
+                                key,
+                                estimatedVehicleJourney.getDataSource().toString()
+                        ).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
+            } catch (Exception e) {
+                //LOG.debug("Failed parsing trip updates", e);
+            }
+        }
+
         return result;
     }
 
@@ -549,51 +593,47 @@ public class SiriToGtfsRealtimeService {
         redisService.writeGtfsRt(tripUpdates, RedisService.Type.TRIP_UPDATE);
     }
 
-    public Map<String, GtfsRtData> convertSiriSxToGtfsRt(SiriType siri) {
+    public Map<String, GtfsRtData> convertSiriSxToGtfsRt(PtSituationElementRecord ptSituationElement) {
 
         Map<String, GtfsRtData> result = Maps.newHashMap();
 
-        if (siri == null) {
-            return result;
-        }
-        ServiceDeliveryType serviceDelivery = siri.getServiceDelivery();
-        if (serviceDelivery != null && serviceDelivery.getSituationExchangeDeliveryCount() > 0) {
-            for (SituationExchangeDeliveryStructure situationExchangeDeliveryStructure : serviceDelivery.getSituationExchangeDeliveryList()) {
-                if (situationExchangeDeliveryStructure != null && situationExchangeDeliveryStructure.getSituations() != null && situationExchangeDeliveryStructure.getSituations().getPtSituationElementCount() > 0) {
-                    for (PtSituationElementStructure ptSituationElement : situationExchangeDeliveryStructure.getSituations().getPtSituationElementList()) {
-                        if (ptSituationElement != null) {
-                            try {
-                                checkPreconditions(ptSituationElement);
-                                Alert.Builder alertFromSituation = alertFactory.createAlertFromSituation(ptSituationElement);
+        if (ptSituationElement != null) {
+            try {
+                checkPreconditions(ptSituationElement);
+                Alert.Builder alertFromSituation = alertFactory.createAlertFromSituation(ptSituationElement);
 
-                                FeedEntity.Builder entity = FeedEntity.newBuilder();
-                                String key = ptSituationElement.getSituationNumber().getValue();
-                                entity.setId(key);
+                FeedEntity.Builder entity = FeedEntity.newBuilder();
+                String key = ptSituationElement.getSituationNumber().toString();
+                entity.setId(key);
 
-                                entity.setAlert(alertFromSituation);
+                entity.setAlert(alertFromSituation);
 
-                                Timestamp endTime = null;
-                                for (HalfOpenTimestampOutputRangeStructure range : ptSituationElement.getValidityPeriodList()) {
-                                    Timestamp rangeEndTimestamp = range.getEndTime();
-                                    endTime = SiriLibrary.getLatestTimestamp(endTime, rangeEndTimestamp);
-                                }
-                                Duration timeToLive;
-                                if (endTime == null || endTime.toString().isBlank()) {
-                                    timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
-                                } else {
-                                    timeToLive = Timestamps.between(SiriLibrary.getCurrentTime(), endTime);
-                                }
-
-                                result.put(new CompositeKey(key, ptSituationElement.getParticipantRef().getValue()).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
-                            } catch (Exception e) {
-                                //LOG.debug("Failed parsing alerts", e);
-                            }
-                        }
+                Instant endTime = null;
+                for (ValidityPeriodRecord range : ptSituationElement.getValidityPeriods()) {
+                    Instant rangeEndTimestamp = getInstant(range.getEndTime());
+                    if (rangeEndTimestamp == null) {
+                        endTime = null;
+                        break;
                     }
+                    endTime = SiriLibrary.getLatestTimestamp(endTime, rangeEndTimestamp);
                 }
-            }
+                Duration timeToLive = null;
+                if (endTime != null) {
+                    timeToLive = Duration.newBuilder().setSeconds(
+                            endTime.getEpochSecond() - Instant.now().getEpochSecond()
+                    ).build();
+                }
 
+                result.put(
+                        new CompositeKey(
+                                key,
+                                ptSituationElement.getParticipantRef().toString()).asString(),
+                        new GtfsRtData(entity.build().toByteArray(), timeToLive));
+            } catch (Exception e) {
+                //LOG.debug("Failed parsing alerts", e);
+            }
         }
+
         return result;
     }
 

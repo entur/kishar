@@ -97,6 +97,11 @@
             <version>3.22.2</version>
         </dependency>
         <dependency>
+            <groupId>org.entur</groupId>
+            <artifactId>siri-avro-model</artifactId>
+            <version>1.0.3</version>
+        </dependency>
+        <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
         </dependency>
@@ -120,12 +125,6 @@
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-http</artifactId>
             <version>${camel.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.entur</groupId>
-            <artifactId>siri-protobuf</artifactId>
-            <version>0.1</version>
         </dependency>
 
         <dependency>

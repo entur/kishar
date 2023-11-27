@@ -55,7 +55,7 @@ public class LivenessRoute extends RestRouteBuilder {
         from("direct:scrape")
                 .process(p -> {
                     if (prometheusRegistry != null) {
-                        p.getOut().setBody(prometheusRegistry.scrape());
+                        p.getMessage().setBody(prometheusRegistry.scrape());
                     }
                 })
                 .setHeader(Exchange.CONTENT_TYPE, constant("text/plain"))

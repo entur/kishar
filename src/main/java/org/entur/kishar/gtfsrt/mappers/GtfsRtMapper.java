@@ -1,21 +1,26 @@
 package org.entur.kishar.gtfsrt.mappers;
 
-import com.google.protobuf.Timestamp;
-import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime;
-import uk.org.siri.www.siri.*;
-import uk.org.siri.www.siri.FramedVehicleJourneyRefStructure;
-import uk.org.siri.www.siri.LocationStructure;
-import uk.org.siri.www.siri.MonitoredCallStructure;
-import uk.org.siri.www.siri.ProgressBetweenStopsStructure;
+import org.entur.avro.realtime.siri.model.CallRecord;
+import org.entur.avro.realtime.siri.model.EstimatedCallRecord;
+import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.FramedVehicleJourneyRefRecord;
+import org.entur.avro.realtime.siri.model.LocationRecord;
+import org.entur.avro.realtime.siri.model.MonitoredVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.OccupancyEnum;
+import org.entur.avro.realtime.siri.model.ProgressBetweenStopsRecord;
+import org.entur.avro.realtime.siri.model.RecordedCallRecord;
+import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
 
 import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 
-public class GtfsRtMapper {
+public class GtfsRtMapper extends AvroHelper {
 
     private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
     private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:MM:ss");
@@ -28,7 +33,7 @@ public class GtfsRtMapper {
         this.closeToNextStopDistance = closeToNextStopDistance;
     }
 
-    public GtfsRealtime.TripUpdate.Builder mapTripUpdateFromVehicleJourney(EstimatedVehicleJourneyStructure vehicleJourney) {
+    public GtfsRealtime.TripUpdate.Builder mapTripUpdateFromVehicleJourney(EstimatedVehicleJourneyRecord vehicleJourney) {
         GtfsRealtime.TripUpdate.Builder tripUpdate = GtfsRealtime.TripUpdate.newBuilder();
 
         GtfsRealtime.TripDescriptor td = getEstimatedVehicleJourneyAsTripDescriptor(vehicleJourney);
@@ -43,20 +48,20 @@ public class GtfsRtMapper {
         return tripUpdate;
     }
 
-    public GtfsRealtime.VehiclePosition.Builder convertSiriToGtfsRt(VehicleActivityStructure activity) {
+    public GtfsRealtime.VehiclePosition.Builder convertSiriToGtfsRt(VehicleActivityRecord activity) {
 
         if (activity == null) {
             return null;
         }
 
-        VehicleActivityStructure.MonitoredVehicleJourneyType mvj = activity.getMonitoredVehicleJourney();
-        if (!activity.hasMonitoredVehicleJourney()) {
+        MonitoredVehicleJourneyRecord mvj = activity.getMonitoredVehicleJourney();
+        if (mvj == null) {
             return null;
         }
 
-        LocationStructure location = mvj.getVehicleLocation();
+        LocationRecord location = mvj.getVehicleLocation();
 
-        if (mvj.hasVehicleLocation()) {
+        if (location != null) {
 
             GtfsRealtime.VehiclePosition.Builder vp = GtfsRealtime.VehiclePosition.newBuilder();
 
@@ -71,7 +76,7 @@ public class GtfsRtMapper {
                 vp.setVehicle(vd);
             }
 
-            if (activity.hasRecordedAtTime()) {
+            if (activity.getRecordedAtTime() != null) {
                 Instant time = getInstant(activity.getRecordedAtTime());
                 if (time != null) {
                     vp.setTimestamp(time.getEpochSecond());
@@ -79,20 +84,25 @@ public class GtfsRtMapper {
             }
 
             GtfsRealtime.Position.Builder position = GtfsRealtime.Position.newBuilder();
-            position.setLatitude((float)location.getLatitude());
-            position.setLongitude((float)location.getLongitude());
+            position.setLatitude(location.getLatitude().floatValue());
+            position.setLongitude(location.getLongitude().floatValue());
 
-            position.setBearing(mvj.getBearing());
+            if (mvj.getBearing() != null) {
+                position.setBearing(mvj.getBearing().floatValue());
+            }
 
-
-            // Speed - not included in profile
-            position.setSpeed(mvj.getVelocity());
+            if (mvj.getVelocity() != null) {
+                // Speed - not included in profile
+                position.setSpeed(mvj.getVelocity().floatValue());
+            }
 
 
             //Distance traveled since last stop
             boolean isCloseToNextStop = false;
-            if (activity.getProgressBetweenStops() != null) {
-                final ProgressBetweenStopsStructure progressBetweenStops = activity.getProgressBetweenStops();
+            if (activity.getProgressBetweenStops() != null &&
+                    activity.getProgressBetweenStops().getPercentage() != null &&
+                    activity.getProgressBetweenStops().getLinkDistance() != null) {
+                final ProgressBetweenStopsRecord progressBetweenStops = activity.getProgressBetweenStops();
 
                 isCloseToNextStop = progressBetweenStops.getPercentage() > closeToNextStopPercentage;
 
@@ -111,9 +121,9 @@ public class GtfsRtMapper {
 
 
             // VehicleStatus
-            if (mvj.hasMonitoredCall()) {
-                final MonitoredCallStructure monitoredCall = mvj.getMonitoredCall();
-                if (monitoredCall.getVehicleAtStop()) {
+            if (mvj.getMonitoredCall() != null) {
+                final CallRecord monitoredCall = mvj.getMonitoredCall();
+                if (Boolean.TRUE.equals(monitoredCall.getVehicleAtStop())) {
                     vp.setCurrentStatus(GtfsRealtime.VehiclePosition.VehicleStopStatus.STOPPED_AT);
                 } else if (isCloseToNextStop) {
                     vp.setCurrentStatus(GtfsRealtime.VehiclePosition.VehicleStopStatus.INCOMING_AT);
@@ -121,17 +131,19 @@ public class GtfsRtMapper {
                     vp.setCurrentStatus(GtfsRealtime.VehiclePosition.VehicleStopStatus.IN_TRANSIT_TO);
                 }
 
-                final LocationStructure locationAtStop = monitoredCall.getVehicleLocationAtStop();
-                if (monitoredCall.hasVehicleLocationAtStop()) {
-                    position.setLatitude((float)locationAtStop.getLatitude());
-                    position.setLongitude((float)locationAtStop.getLongitude());
+                final LocationRecord locationAtStop = monitoredCall.getVehicleLocationAtStop();
+                if (monitoredCall.getVehicleLocationAtStop() != null) {
+                    position.setLatitude(locationAtStop.getLatitude().floatValue());
+                    position.setLongitude(locationAtStop.getLongitude().floatValue());
                 }
 
-                if (monitoredCall.hasStopPointRef()) {
-                    vp.setStopId(monitoredCall.getStopPointRef().getValue());
+                if (monitoredCall.getStopPointRef() != null) {
+                    vp.setStopId(monitoredCall.getStopPointRef().toString());
                 }
 
-                vp.setCurrentStopSequence(monitoredCall.getOrder());
+                if (monitoredCall.getOrder() != null) {
+                    vp.setCurrentStopSequence(monitoredCall.getOrder());
+                }
 
             }
 
@@ -139,21 +151,14 @@ public class GtfsRtMapper {
 
             //Occupancy - GTFS-RT experimental feature
             if (mvj.getOccupancy() != null) {
-                switch (mvj.getOccupancy()) {
-                    case OCCUPANCY_ENUMERATION_FULL:
-                        vp.setOccupancyStatus(GtfsRealtime.VehiclePosition.OccupancyStatus.FULL);
-                        break;
-                    case OCCUPANCY_ENUMERATION_STANDING_AVAILABLE:
-                        vp.setOccupancyStatus(GtfsRealtime.VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY);
-                        break;
-                    case OCCUPANCY_ENUMERATION_SEATS_AVAILABLE:
-                        vp.setOccupancyStatus(GtfsRealtime.VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE);
-                        break;
+                GtfsRealtime.VehiclePosition.OccupancyStatus gtfsRtOccupancy = convertOccupancy(mvj.getOccupancy());
+                if (gtfsRtOccupancy != null) {
+                    vp.setOccupancyStatus(gtfsRtOccupancy);
                 }
             }
 
             //Congestion
-            if (mvj.getInCongestion()) {
+            if (Boolean.TRUE.equals(mvj.getInCongestion())) {
                 vp.setCongestionLevel(GtfsRealtime.VehiclePosition.CongestionLevel.CONGESTION);
             } else {
                 vp.setCongestionLevel(GtfsRealtime.VehiclePosition.CongestionLevel.RUNNING_SMOOTHLY);
@@ -165,33 +170,55 @@ public class GtfsRtMapper {
         return null;
     }
 
-    private GtfsRealtime.VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(VehicleActivityStructure.MonitoredVehicleJourneyType mvj) {
-        VehicleRefStructure vehicleRef = mvj.getVehicleRef();
-        if (!mvj.hasVehicleRef() || vehicleRef.getValue() == null) {
+    private static GtfsRealtime.VehiclePosition.OccupancyStatus convertOccupancy(OccupancyEnum occupancyEnum) {
+        switch (occupancyEnum) {
+            case EMPTY:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.EMPTY;
+            case FULL:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.FULL;
+            case STANDING_ROOM_ONLY:
+            case STANDING_AVAILABLE:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY;
+            case CRUSHED_STANDING_ROOM_ONLY:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.CRUSHED_STANDING_ROOM_ONLY;
+            case SEATS_AVAILABLE:
+            case FEW_SEATS_AVAILABLE:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE;
+            case NOT_ACCEPTING_PASSENGERS:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.NOT_ACCEPTING_PASSENGERS;
+            case MANY_SEATS_AVAILABLE:
+                return GtfsRealtime.VehiclePosition.OccupancyStatus.MANY_SEATS_AVAILABLE;
+        }
+        return null;
+    }
+
+    private GtfsRealtime.VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(MonitoredVehicleJourneyRecord mvj) {
+        String vehicleRef = mvj.getVehicleRef().toString();
+        if (vehicleRef == null || vehicleRef.isBlank()) {
             return null;
         }
 
-        GtfsRealtime.VehicleDescriptor.Builder vd = GtfsRealtime.VehicleDescriptor.newBuilder();
-        vd.setId(vehicleRef.getValue());
-        return vd.build();
+        return GtfsRealtime.VehicleDescriptor.newBuilder()
+                .setId(vehicleRef)
+                .build();
     }
 
-    private GtfsRealtime.TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(VehicleActivityStructure.MonitoredVehicleJourneyType mvj) {
+    private GtfsRealtime.TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(MonitoredVehicleJourneyRecord mvj) {
 
-        if (!mvj.hasFramedVehicleJourneyRef()) {
+        if (mvj.getFramedVehicleJourneyRef() == null) {
             return null;
         }
 
         GtfsRealtime.TripDescriptor.Builder td = GtfsRealtime.TripDescriptor.newBuilder();
 
-        FramedVehicleJourneyRefStructure fvjRef = mvj.getFramedVehicleJourneyRef();
-        td.setTripId(fvjRef.getDatedVehicleJourneyRef());
+        FramedVehicleJourneyRefRecord fvjRef = mvj.getFramedVehicleJourneyRef();
+        td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
 
-        if (mvj.hasLineRef()) {
-            td.setRouteId(mvj.getLineRef().getValue());
+        if (mvj.getLineRef() != null) {
+            td.setRouteId( mvj.getLineRef().toString());
         }
 
-        if (mvj.hasOriginAimedDepartureTime()) {
+        if (mvj.getOriginAimedDepartureTime() != null) {
 
             final Date date = new Date(getInstant(mvj.getOriginAimedDepartureTime()).toEpochMilli());
 
@@ -202,75 +229,71 @@ public class GtfsRtMapper {
         return td.build();
     }
 
-    private Instant getInstant(Timestamp timestamp) {
-        return Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos());
-    }
 
-    private GtfsRealtime.TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(EstimatedVehicleJourneyStructure estimatedVehicleJourney) {
+    private GtfsRealtime.TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
         GtfsRealtime.TripDescriptor.Builder td = GtfsRealtime.TripDescriptor.newBuilder();
-        FramedVehicleJourneyRefStructure fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
-        td.setTripId(fvjRef.getDatedVehicleJourneyRef());
+        FramedVehicleJourneyRefRecord fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
+        td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
 
-        if (estimatedVehicleJourney.hasLineRef()) {
-            td.setRouteId(estimatedVehicleJourney.getLineRef().getValue());
+        if (estimatedVehicleJourney.getLineRef() != null) {
+            td.setRouteId(estimatedVehicleJourney.getLineRef().toString());
         }
 
         return td.build();
     }
 
     private GtfsRealtime.VehicleDescriptor getEstimatedVehicleJourneyAsVehicleDescriptor(
-            EstimatedVehicleJourneyStructure estimatedVehicleJourney) {
-        VehicleRefStructure vehicleRef = estimatedVehicleJourney.getVehicleRef();
+            EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
-        if (!estimatedVehicleJourney.hasVehicleRef() || vehicleRef.getValue() == null) {
+        if (estimatedVehicleJourney.getVehicleRef() == null) {
             return null;
         }
 
-        GtfsRealtime.VehicleDescriptor.Builder vd = GtfsRealtime.VehicleDescriptor.newBuilder();
-        vd.setId(vehicleRef.getValue());
-        return vd.build();
+        return GtfsRealtime.VehicleDescriptor.newBuilder()
+                .setId(estimatedVehicleJourney.getVehicleRef().toString())
+                .build();
     }
 
     private void applyStopSpecificDelayToTripUpdateIfApplicable(
-            EstimatedVehicleJourneyStructure mvj,
+            EstimatedVehicleJourneyRecord mvj,
             GtfsRealtime.TripUpdate.Builder tripUpdate) {
-        EstimatedVehicleJourneyStructure.EstimatedCallsType estimatedCalls = mvj.getEstimatedCalls();
-        EstimatedVehicleJourneyStructure.RecordedCallsType recordedCalls = mvj.getRecordedCalls();
+        List<EstimatedCallRecord> estimatedCalls = mvj.getEstimatedCalls();
+        List<RecordedCallRecord> recordedCalls = mvj.getRecordedCalls();
 
         int stopCounter = 0;
-        if (mvj.hasRecordedCalls() && recordedCalls.getRecordedCallCount() > 0) {
-            for (RecordedCallStructure recordedCall : recordedCalls.getRecordedCallList()) {
-                StopPointRefStructure stopPointRef = recordedCall.getStopPointRef();
-                if (!recordedCall.hasStopPointRef() || stopPointRef.getValue() == null) {
+        if (recordedCalls != null) {
+            for (RecordedCallRecord recordedCall : recordedCalls) {
+                String stopPointRef = recordedCall.getStopPointRef().toString();
+                if (stopPointRef == null) {
                     return;
                 }
                 Integer arrivalDelayInSeconds = null;
                 Integer departureDelayInSeconds = null;
 
-                if (recordedCall.hasAimedArrivalTime()) {
-                    Timestamp updatedArrivalTime = null;
-                    if (recordedCall.hasActualArrivalTime()) {
+                if (recordedCall.getAimedArrivalTime() != null) {
+                    CharSequence updatedArrivalTime = null;
+                    if (recordedCall.getActualArrivalTime() != null) {
                         updatedArrivalTime = recordedCall.getActualArrivalTime();
-                    } else if (recordedCall.hasExpectedArrivalTime()) {
+                    } else if (recordedCall.getExpectedArrivalTime() != null) {
                         updatedArrivalTime = recordedCall.getExpectedArrivalTime();
                     }
                     if (updatedArrivalTime != null) {
-                        arrivalDelayInSeconds = calculateDiff(recordedCall.getAimedArrivalTime(), updatedArrivalTime);
+                        arrivalDelayInSeconds = calculateDelay(recordedCall.getAimedArrivalTime(), updatedArrivalTime);
                     }
                 }
 
-                if (recordedCall.hasAimedDepartureTime()) {
+                if (recordedCall.getAimedDepartureTime() != null) {
 
-                    Timestamp updatedDepartureTime = null;
-                    if (recordedCall.hasActualDepartureTime()) {
+                    CharSequence updatedDepartureTime = null;
+                    if (recordedCall.getActualDepartureTime() != null) {
                         updatedDepartureTime = recordedCall.getActualDepartureTime();
-                    } else if (recordedCall.hasExpectedDepartureTime()) {
+                    } else if (recordedCall.getExpectedDepartureTime() != null) {
                         updatedDepartureTime = recordedCall.getExpectedDepartureTime();
                     }
 
                     if (updatedDepartureTime != null) {
-                        departureDelayInSeconds = calculateDiff(recordedCall.getAimedDepartureTime(), updatedDepartureTime);
+                        departureDelayInSeconds = calculateDelay(recordedCall.getAimedDepartureTime(), updatedDepartureTime);
                     }
                 }
 
@@ -286,21 +309,22 @@ public class GtfsRtMapper {
                 stopCounter++;
             }
         }
-        if (mvj.hasEstimatedCalls() && estimatedCalls.getEstimatedCallCount() > 0) {
-            for (EstimatedCallStructure estimatedCall : estimatedCalls.getEstimatedCallList()) {
-                StopPointRefStructure stopPointRef = estimatedCall.getStopPointRef();
-                if (!estimatedCall.hasStopPointRef() || stopPointRef.getValue() == null) {
+        if (estimatedCalls != null) {
+            for (EstimatedCallRecord estimatedCall : estimatedCalls) {
+                String  stopPointRef = estimatedCall.getStopPointRef().toString();
+                if (stopPointRef == null) {
                     return;
                 }
 
                 Integer arrivalDelayInSeconds = null;
                 Integer departureDelayInSeconds = null;
 
-                if (estimatedCall.hasAimedArrivalTime() && estimatedCall.hasExpectedArrivalTime()){
-                    arrivalDelayInSeconds = calculateDiff(estimatedCall.getAimedArrivalTime(), estimatedCall.getExpectedArrivalTime());
+                if (estimatedCall.getAimedArrivalTime() != null && estimatedCall.getExpectedArrivalTime() != null){
+                    arrivalDelayInSeconds = calculateDelay(estimatedCall.getAimedArrivalTime(), estimatedCall.getExpectedArrivalTime());
                 }
-                if (estimatedCall.hasAimedDepartureTime() && estimatedCall.hasExpectedDepartureTime()) {
-                    departureDelayInSeconds = calculateDiff(estimatedCall.getAimedDepartureTime(), estimatedCall.getExpectedDepartureTime());
+                if (estimatedCall.getAimedDepartureTime() != null &&
+                        estimatedCall.getExpectedDepartureTime() != null) {
+                    departureDelayInSeconds = calculateDelay(estimatedCall.getAimedDepartureTime(), estimatedCall.getExpectedDepartureTime());
                 }
 
                 int stopSequence;
@@ -317,14 +341,14 @@ public class GtfsRtMapper {
         }
     }
 
-    private Integer calculateDiff(Timestamp aimed, Timestamp expected) {
+    private Integer calculateDelay(CharSequence aimed, CharSequence expected) {
         if (aimed != null && expected != null) {
-            return (int)Timestamps.between(aimed, expected).getSeconds();
+            return (int) Duration.between(getInstant(aimed), getInstant(expected)).getSeconds();
         }
         return null;
     }
 
-    private void addStopTimeUpdate(StopPointRefStructure stopPointRef, Integer arrivalDelayInSeconds, Integer departureDelayInSeconds, int stopSequence, GtfsRealtime.TripUpdate.Builder tripUpdate) {
+    private void addStopTimeUpdate(String stopPointRef, Integer arrivalDelayInSeconds, Integer departureDelayInSeconds, int stopSequence, GtfsRealtime.TripUpdate.Builder tripUpdate) {
 
 
         GtfsRealtime.TripUpdate.StopTimeUpdate.Builder stopTimeUpdate = GtfsRealtime.TripUpdate.StopTimeUpdate.newBuilder();
@@ -341,7 +365,7 @@ public class GtfsRtMapper {
         }
 
         stopTimeUpdate.setStopSequence(stopSequence);
-        stopTimeUpdate.setStopId(stopPointRef.getValue());
+        stopTimeUpdate.setStopId(stopPointRef);
 
         tripUpdate.addStopTimeUpdate(stopTimeUpdate);
     }

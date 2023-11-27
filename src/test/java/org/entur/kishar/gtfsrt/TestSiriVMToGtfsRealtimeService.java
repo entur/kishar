@@ -1,16 +1,24 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
-import com.google.protobuf.Duration;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.util.Timestamps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.avro.realtime.siri.model.CallRecord;
+import org.entur.avro.realtime.siri.model.LocationRecord;
+import org.entur.avro.realtime.siri.model.MonitoredVehicleJourneyRecord;
+import org.entur.avro.realtime.siri.model.OccupancyEnum;
+import org.entur.avro.realtime.siri.model.ProgressBetweenStopsRecord;
+import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
+import org.entur.avro.realtime.siri.model.SiriRecord;
+import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
+import org.entur.avro.realtime.siri.model.VehicleMonitoringDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.junit.Test;
-import uk.org.siri.www.siri.*;
 
 import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +26,6 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
-import static org.entur.kishar.gtfsrt.Helper.createLineRef;
 import static org.mockito.Mockito.when;
 
 public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest{
@@ -36,13 +43,13 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnumeration occupancy = OccupancyEnumeration.OCCUPANCY_ENUMERATION_FULL;
+        OccupancyEnum occupancy = OccupancyEnum.FULL;
         int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
         int distance = 10000;
 
         boolean isVehicleAtStop = false;
 
-        SiriType siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+        SiriRecord siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
@@ -77,9 +84,9 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     private Map<String, byte[]> getRedisMap(
-        SiriToGtfsRealtimeService realtimeService, SiriType siri
+        SiriToGtfsRealtimeService realtimeService, SiriRecord siri
     ) {
-        Map<String, GtfsRtData> gtfsRt = realtimeService.convertSiriVmToGtfsRt(siri);
+        Map<String, GtfsRtData> gtfsRt = realtimeService.convertSiriToGtfsRt(siri);
         Map<String, byte[]> redisMap = Maps.newHashMap();
         for (String key : gtfsRt.keySet()) {
             byte[] data = gtfsRt.get(key).getData();
@@ -101,13 +108,13 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnumeration occupancy = OccupancyEnumeration.OCCUPANCY_ENUMERATION_SEATS_AVAILABLE;
+        OccupancyEnum occupancy = OccupancyEnum.SEATS_AVAILABLE;
         int progressPercentage = 51;
         int distance = NEXT_STOP_DISTANCE*2;
 
         boolean isVehicleAtStop = false;
 
-        SiriType siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+        SiriRecord siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
@@ -141,13 +148,13 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnumeration occupancy = OccupancyEnumeration.OCCUPANCY_ENUMERATION_STANDING_AVAILABLE;
+        OccupancyEnum occupancy = OccupancyEnum.STANDING_AVAILABLE;
         int progressPercentage = NEXT_STOP_PERCENTAGE - 1;
         int distance = 10000;
 
         boolean isVehicleAtStop = false;
 
-        SiriType siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+        SiriRecord siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
@@ -179,8 +186,8 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String datasource1 = "RUT";
         String datasource2 = "BNR";
 
-        SiriType siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
-        SiriType siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
+        SiriRecord siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
+        SiriRecord siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
 
         Map<String, byte[]> redisMap = getRedisMap(rtService, siriRUT);
         Map<String, byte[]> siriBnrMap = getRedisMap(rtService, siriBNR);
@@ -225,7 +232,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String vehicleRefValue = "TST:Vehicle:1234";
         String datasource = "RUT";
 
-        SiriType siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
+        SiriRecord siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
 
         Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
@@ -259,17 +266,17 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnumeration occupancy = OccupancyEnumeration.OCCUPANCY_ENUMERATION_FULL;
+        OccupancyEnum occupancy = OccupancyEnum.FULL;
         int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
         int distance = 10000;
 
         boolean isVehicleAtStop = false;
 
-        SiriType siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
+        SiriRecord siri = createSiriVmDelivery(stopPointRefValue, lineRefValue, latitude, longitude,
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<String, GtfsRtData> result = rtService.convertSiriVmToGtfsRt(siri);
+        Map<String, GtfsRtData> result = rtService.convertSiriToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }
@@ -289,24 +296,18 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         return feedMessage;
     }
 
-    private VehicleRefStructure createVehicleRef(String value) {
-        return VehicleRefStructure.newBuilder()
-                .setValue(value)
-                .build();
-    }
-
-    private LocationStructure createLocation(double longitude, double latitude) {
-        return LocationStructure.newBuilder()
+    private LocationRecord createLocation(double longitude, double latitude) {
+        return LocationRecord.newBuilder()
                 .setLongitude(longitude)
                 .setLatitude(latitude)
                 .build();
     }
 
-    private SiriType createSiriVmDelivery(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue, String datasource) {
+    private SiriRecord createSiriVmDelivery(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue, String datasource) {
 
-        VehicleActivityStructure.MonitoredVehicleJourneyType.Builder mvjBuilder = VehicleActivityStructure.MonitoredVehicleJourneyType.newBuilder()
-                .setLineRef(createLineRef(lineRefValue))
-                .setVehicleRef(createVehicleRef(vehicleRefValue))
+        MonitoredVehicleJourneyRecord.Builder mvjBuilder = MonitoredVehicleJourneyRecord.newBuilder()
+                .setLineRef(lineRefValue)
+                .setVehicleRef(vehicleRefValue)
                 .setVehicleLocation(createLocation(longitude, latitude))
                 .setDataSource(datasource);
 
@@ -314,75 +315,72 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
             mvjBuilder.setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef));
         }
 
-        VehicleActivityStructure.MonitoredVehicleJourneyType mvj = mvjBuilder.build();
+        MonitoredVehicleJourneyRecord mvj = mvjBuilder.build();
 
-        VehicleActivityStructure activity = VehicleActivityStructure.newBuilder()
+        VehicleActivityRecord activity = VehicleActivityRecord.newBuilder()
                 .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(SiriLibrary.getCurrentTime())
-                .setValidUntilTime(Timestamps.add(SiriLibrary.getCurrentTime(), Duration.newBuilder().setSeconds(600).build()))
+                .setRecordedAtTime(SiriLibrary.getCurrentTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .setValidUntilTime(SiriLibrary.getCurrentTime().plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .build();
 
-        VehicleMonitoringDeliveryStructure vmDelivery = VehicleMonitoringDeliveryStructure.newBuilder()
-                .addVehicleActivity(activity)
+        VehicleMonitoringDeliveryRecord vmDelivery = VehicleMonitoringDeliveryRecord.newBuilder()
+                .setVehicleActivities(List.of(activity))
                 .build();
 
-        ServiceDeliveryType serviceDelivery = ServiceDeliveryType.newBuilder()
-                .addVehicleMonitoringDelivery(vmDelivery)
+        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
+                .setVehicleMonitoringDeliveries(List.of(vmDelivery))
                 .build();
 
-        return SiriType.newBuilder()
+        return SiriRecord.newBuilder()
                 .setServiceDelivery(serviceDelivery)
                 .build();
     }
 
 
-    private SiriType createSiriVmDelivery(String stopPointRefValue, String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef,
+    private SiriRecord createSiriVmDelivery(String stopPointRef, String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef,
                                       String vehicleRefValue, String datasource, float bearing, long velocity,
-                                      OccupancyEnumeration occupancy, int progressPercentage, int distance, boolean isVehicleAtStop) {
+                                      OccupancyEnum occupancy, double progressPercentage, double distance, boolean isVehicleAtStop) {
 
 
-        StopPointRefStructure stopPointRef = StopPointRefStructure.newBuilder()
-                .setValue(stopPointRefValue)
-                .build();
 
-        MonitoredCallStructure monitoredCall = MonitoredCallStructure.newBuilder()
+        CallRecord monitoredCall = CallRecord.newBuilder()
                 .setVehicleAtStop(isVehicleAtStop)
                 .setStopPointRef(stopPointRef)
                 .build();
 
-        VehicleActivityStructure.MonitoredVehicleJourneyType mvj = VehicleActivityStructure.MonitoredVehicleJourneyType.newBuilder()
-                .setLineRef(createLineRef(lineRefValue))
-                .setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef))
-                .setVehicleLocation(createLocation(longitude, latitude))
-                .setVehicleRef(createVehicleRef(vehicleRefValue))
-                .setBearing(bearing)
-                .setVelocity((int)velocity)
-                .setOccupancy(occupancy)
-                .setDataSource(datasource)
-                .setMonitoredCall(monitoredCall)
-                .build();
+        MonitoredVehicleJourneyRecord mvj = MonitoredVehicleJourneyRecord.newBuilder()
+                                .setLineRef(lineRefValue)
+                                .setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef))
+                                .setVehicleLocation(createLocation(longitude, latitude))
+                                .setVehicleRef(vehicleRefValue)
+                                .setBearing(bearing)
+                                .setVelocity((int)velocity)
+                                .setOccupancy(occupancy)
+                                .setDataSource(datasource)
+                                .setMonitoredCall(monitoredCall)
+                                .build();
 
-        ProgressBetweenStopsStructure progress = ProgressBetweenStopsStructure.newBuilder()
+        ProgressBetweenStopsRecord progress = ProgressBetweenStopsRecord.newBuilder()
                 .setPercentage(progressPercentage)
                 .setLinkDistance(distance)
                 .build();
 
-        VehicleActivityStructure activity = VehicleActivityStructure.newBuilder()
+        VehicleActivityRecord activity = VehicleActivityRecord.newBuilder()
                 .setProgressBetweenStops(progress)
                 .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(SiriLibrary.getCurrentTime())
-                .setValidUntilTime(Timestamps.add(SiriLibrary.getCurrentTime(), Duration.newBuilder().setSeconds(600).build()))
+                .setRecordedAtTime(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+                .setValidUntilTime(ZonedDateTime.now().plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
                 .build();
 
-        VehicleMonitoringDeliveryStructure vmDelivery = VehicleMonitoringDeliveryStructure.newBuilder()
-                .addVehicleActivity(activity)
+        VehicleMonitoringDeliveryRecord vmDelivery = VehicleMonitoringDeliveryRecord.newBuilder()
+                .setVehicleActivities(List.of(activity))
                 .build();
 
-        ServiceDeliveryType serviceDelivery = ServiceDeliveryType.newBuilder()
-                .addVehicleMonitoringDelivery(vmDelivery)
+        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
+                .setVehicleMonitoringDeliveries(List.of(vmDelivery))
                 .build();
 
-        return SiriType.newBuilder()
+        return SiriRecord.newBuilder()
                 .setServiceDelivery(serviceDelivery)
                 .build();
     }

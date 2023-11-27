@@ -2,17 +2,20 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
+import org.entur.avro.realtime.siri.model.SiriRecord;
+import org.entur.avro.realtime.siri.model.SituationExchangeDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.junit.Test;
-import uk.org.siri.www.siri.ServiceDeliveryType;
-import uk.org.siri.www.siri.SiriType;
-import uk.org.siri.www.siri.SituationExchangeDeliveryStructure;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.TestCase.*;
+import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertFalse;
+import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertTrue;
 import static org.entur.kishar.gtfsrt.Helper.createPtSituationElement;
 import static org.entur.kishar.gtfsrt.TestAlertFactory.assertAlert;
 import static org.mockito.Mockito.when;
@@ -21,7 +24,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testSituationToAlert() throws IOException {
-        SiriType siri = createSiriSx("RUT");
+        SiriRecord siri = createSiriSx("RUT");
 
         Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
@@ -46,8 +49,8 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertAlert(alert);
     }
 
-    private Map<String, byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriType siri) {
-        Map<String, GtfsRtData> gtfsRt = rtService.convertSiriSxToGtfsRt(siri);
+    private Map<String, byte[]> getRedisMap(SiriToGtfsRealtimeService rtService, SiriRecord siri) {
+        Map<String, GtfsRtData> gtfsRt = rtService.convertSiriToGtfsRt(siri);
         Map<String, byte[]> redisMap = Maps.newHashMap();
         for (String key : gtfsRt.keySet()) {
             byte[] data = gtfsRt.get(key).getData();
@@ -60,7 +63,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     public void testSituationToAlertWithDatasourceFiltering() throws IOException {
 
         String datasource = "BNR";
-        SiriType siri = createSiriSx(datasource);
+        SiriRecord siri = createSiriSx(datasource);
 
         Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
@@ -79,27 +82,24 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     public void testMappingOfSiriSx() {
         String datasource = "RUT";
 
-        SiriType siri = createSiriSx(datasource);
+        SiriRecord siri = createSiriSx(datasource);
 
-        Map<String, GtfsRtData> result = rtService.convertSiriSxToGtfsRt(siri);
+        Map<String, GtfsRtData> result = rtService.convertSiriToGtfsRt(siri);
 
         assertFalse(result.isEmpty());
     }
 
-    private SiriType createSiriSx(String datasource) {
-        SituationExchangeDeliveryStructure.SituationsType situations = SituationExchangeDeliveryStructure.SituationsType.newBuilder()
-                .addPtSituationElement(createPtSituationElement(datasource))
+    private SiriRecord createSiriSx(String datasource) {
+        SituationExchangeDeliveryRecord sxDelivery = SituationExchangeDeliveryRecord.newBuilder()
+                .setSituations(List.of(createPtSituationElement(datasource)))
                 .build();
 
-        SituationExchangeDeliveryStructure sxDelivery = SituationExchangeDeliveryStructure.newBuilder()
-                .setSituations(situations)
+
+        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
+                .setSituationExchangeDeliveries(List.of(sxDelivery))
                 .build();
 
-        ServiceDeliveryType serviceDelivery = ServiceDeliveryType.newBuilder()
-                .addSituationExchangeDelivery(sxDelivery)
-                .build();
-
-        return SiriType.newBuilder()
+        return SiriRecord.newBuilder()
                 .setServiceDelivery(serviceDelivery)
                 .build();
     }

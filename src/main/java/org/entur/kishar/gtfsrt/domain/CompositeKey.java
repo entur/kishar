@@ -3,7 +3,8 @@ package org.entur.kishar.gtfsrt.domain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.Serializable;
 
 public class CompositeKey implements Serializable {
 
@@ -11,7 +12,7 @@ public class CompositeKey implements Serializable {
 
     private String datasource;
 
-    private static transient ObjectMapper objectMapper = new ObjectMapper();
+    private static ObjectMapper objectMapper = new ObjectMapper();
 
     public CompositeKey(String id, String datasource) {
         this.id = id;
