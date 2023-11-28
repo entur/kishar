@@ -454,27 +454,30 @@ public class SiriToGtfsRealtimeService {
                return result;
             }
             VehiclePosition.Builder builder = gtfsMapper.convertSiriToGtfsRt(activity);
-            if (builder.getTimestamp() <= 0) {
-                builder.setTimestamp(System.currentTimeMillis());
+            if (builder != null) {
+
+                if (builder.getTimestamp() <= 0) {
+                    builder.setTimestamp(System.currentTimeMillis());
+                }
+
+                FeedEntity.Builder entity = FeedEntity.newBuilder();
+                String key = getVehicleIdForKey(getKey(activity));
+                entity.setId(key);
+
+                entity.setVehicle(builder);
+
+                Duration timeToLive;
+                if (activity.getValidUntilTime() != null) {
+                    timeToLive = Duration.newBuilder().setSeconds(
+                            getInstant(activity.getValidUntilTime()).getEpochSecond() - Instant.now().getEpochSecond()
+                    ).build();
+                } else {
+                    timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
+                }
+
+                result.put(new CompositeKey(key, activity.getMonitoredVehicleJourney().getDataSource().toString()).asString(),
+                        new GtfsRtData(entity.build().toByteArray(), timeToLive));
             }
-
-            FeedEntity.Builder entity = FeedEntity.newBuilder();
-            String key = getVehicleIdForKey(getKey(activity));
-            entity.setId(key);
-
-            entity.setVehicle(builder);
-
-            Duration timeToLive;
-            if (activity.getValidUntilTime() != null) {
-                timeToLive = Duration.newBuilder().setSeconds(
-                        getInstant(activity.getValidUntilTime()).getEpochSecond() - Instant.now().getEpochSecond()
-                ).build();
-            } else {
-                timeToLive = Duration.newBuilder().setSeconds(gracePeriod).build();
-            }
-
-            result.put(new CompositeKey(key,activity.getMonitoredVehicleJourney().getDataSource().toString()).asString(),
-                    new GtfsRtData(entity.build().toByteArray(), timeToLive));
         }
 
         return result;
