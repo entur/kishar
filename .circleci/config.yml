@@ -34,27 +34,6 @@ aliases:
       .circleci/trigger_build_v2.sh "entur/kishar-deployment-config.git" "master" "$(git log -1 --pretty=%B)"
 
 jobs:
-  test:
-    docker:
-      - image: cimg/openjdk:17.0.1
-    environment:
-      MAVEN_OPTS: -Xmx3G
-    steps:
-      - checkout
-      - restore_cache:
-          key: dep-cache-{{ checksum "pom.xml" }}
-      - run: *jfrog-settings
-      - run: mvn org.apache.maven.plugins:maven-dependency-plugin:3.1.0:go-offline -s .circleci/settings.xml
-      - save_cache:
-          paths:
-            - ~/.m2
-          key: dep-cache-{{ checksum "pom.xml" }}
-      - run: mvn test -s .circleci/settings.xml
-      - run: *save-test-results
-      - store_test_results:
-          path: ~/reports
-      - store_artifacts:
-          path: ~/reports
   build:
     docker:
       - image: cimg/openjdk:17.0.1
@@ -71,16 +50,18 @@ jobs:
             - ~/.m2
           key: dep-cache-{{ checksum "pom.xml" }}
       # Cannot use -o because of snapshot dependencies.
-      - run: mvn deploy -s .circleci/settings.xml -DskipTests
+      - run: mvn install deploy -s .circleci/settings.xml
+      - run: *save-test-results
+      - store_test_results:
+          path: ~/reports
+      - store_artifacts:
+          path: ~/reports
       - run: *post_build
 
 workflows:
   version: 2
   release:
     jobs:
-      - test:
-          name: test-release
-          context: global
       - build:
           name: build-release
           context: global
@@ -88,5 +69,3 @@ workflows:
             branches:
               only:
                 - master
-          requires:
-            - test-release
