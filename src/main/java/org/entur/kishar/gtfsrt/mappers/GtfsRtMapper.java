@@ -151,7 +151,7 @@ public class GtfsRtMapper extends AvroHelper {
 
             //Occupancy - GTFS-RT experimental feature
             if (mvj.getOccupancy() != null) {
-                GtfsRealtime.VehiclePosition.OccupancyStatus gtfsRtOccupancy = convertOccupancy(mvj.getOccupancy());
+                GtfsRealtime.VehiclePosition.OccupancyStatus gtfsRtOccupancy = convertOccupancy(mvj.getOccupancy().toString());
                 if (gtfsRtOccupancy != null) {
                     vp.setOccupancyStatus(gtfsRtOccupancy);
                 }
@@ -170,7 +170,8 @@ public class GtfsRtMapper extends AvroHelper {
         return null;
     }
 
-    private static GtfsRealtime.VehiclePosition.OccupancyStatus convertOccupancy(OccupancyEnum occupancyEnum) {
+    private static GtfsRealtime.VehiclePosition.OccupancyStatus convertOccupancy(String occupancy) {
+        OccupancyEnum occupancyEnum = OccupancyEnum.valueOf(occupancy);
         switch (occupancyEnum) {
             case EMPTY:
                 return GtfsRealtime.VehiclePosition.OccupancyStatus.EMPTY;

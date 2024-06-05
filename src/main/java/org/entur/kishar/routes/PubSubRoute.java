@@ -2,9 +2,7 @@ package org.entur.kishar.routes;
 
 
 import org.apache.camel.builder.RouteBuilder;
-import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
-import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
-import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
+import org.entur.avro.realtime.siri.helper.JsonReader;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
@@ -15,7 +13,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
-import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 
@@ -73,9 +70,8 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:parse.siri.to.gtfs.rt.trip.updates")
                     .process( p -> {
-                        final byte[] data = (byte[]) p.getIn().getBody();
                         Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriEtToGtfsRt(
-                                EstimatedVehicleJourneyRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                                JsonReader.readEstimatedVehicleJourney(p.getIn().getBody(String.class))
                         );
                         p.getMessage().setBody(body);
                         p.getMessage().setHeaders(p.getIn().getHeaders());
@@ -91,9 +87,8 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:parse.siri.to.gtfs.rt.vehicle.positions")
                     .process( p -> {
-                        final byte[] data = (byte[]) p.getIn().getBody();
                         Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriVmToGtfsRt(
-                                VehicleActivityRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                                JsonReader.readVehicleActivity(p.getIn().getBody(String.class))
                         );
                         p.getMessage().setBody(body);
                         p.getMessage().setHeaders(p.getIn().getHeaders());
@@ -112,9 +107,8 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:parse.siri.to.gtfs.rt.alerts")
                     .process( p -> {
-                        final byte[] data = (byte[]) p.getIn().getBody();
                         Map<String, GtfsRtData> body = siriToGtfsRealtimeService.convertSiriSxToGtfsRt(
-                                PtSituationElementRecord.fromByteBuffer(ByteBuffer.wrap(data))
+                                JsonReader.readPtSituationElement(p.getIn().getBody(String.class))
                         );
                         p.getMessage().setBody(body);
                         p.getMessage().setHeaders(p.getIn().getHeaders());

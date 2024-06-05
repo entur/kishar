@@ -355,7 +355,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                                 .setVehicleRef(vehicleRefValue)
                                 .setBearing(bearing)
                                 .setVelocity((int)velocity)
-                                .setOccupancy(occupancy)
+                                .setOccupancy(occupancy.name())
                                 .setDataSource(datasource)
                                 .setMonitoredCall(monitoredCall)
                                 .build();
