@@ -44,14 +44,18 @@ public class RedisService {
 
     RedissonClient redisson;
 
-    public RedisService(@Value("${kishar.redis.enabled:false}") boolean redisEnabled, @Value("${kishar.redis.host:}") String host, @Value("${kishar.redis.port:}") String port) {
+    public RedisService(@Value("${kishar.redis.enabled:false}") boolean redisEnabled,
+                        @Value("${kishar.redis.host:}") String host,
+                        @Value("${kishar.redis.port:}") String port,
+                        @Value("${kishar.redis.password:}") String password) {
         this.redisEnabled = redisEnabled;
 
         if (redisEnabled) {
-            LOG.info("redis url = " + host + ":" + port);
+            LOG.info("redis url = " + host + ":" + port + ", password.length = " + (password == null ? 0 : password.length()));
             Config config = new Config();
             config.useReplicatedServers()
-                    .addNodeAddress("redis://" + host + ":" + port);
+                    .addNodeAddress("redis://" + host + ":" + port)
+                    .setPassword(password == null || password.isBlank() ? null : password);
 
             redisson = Redisson.create(config);
         }
