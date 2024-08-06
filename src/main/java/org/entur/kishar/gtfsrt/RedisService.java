@@ -58,6 +58,8 @@ public class RedisService {
                     .setPassword(password == null || password.isBlank() ? null : password);
 
             redisson = Redisson.create(config);
+        } else {
+            LOG.info("Redis not enabled");
         }
     }
     public void resetAllData() {
