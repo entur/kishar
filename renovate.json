@@ -2,6 +2,6 @@
   "extends": [
     "github>entur/ror-renovate-config"
   ],
-  "baseBranch": "main",
+  "baseBranch": "master",
   "separateMinorPatch": true
 }
