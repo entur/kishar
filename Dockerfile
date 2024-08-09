@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:17.0.12_7-jdk
 
 RUN addgroup appuser && adduser --disabled-password appuser --ingroup appuser
 USER appuser
