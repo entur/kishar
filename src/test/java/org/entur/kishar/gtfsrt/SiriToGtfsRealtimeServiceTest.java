@@ -2,11 +2,13 @@ package org.entur.kishar.gtfsrt;
 
 import org.entur.kishar.App;
 import org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary;
+import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +41,11 @@ public abstract class SiriToGtfsRealtimeServiceTest {
     @Value("${kishar.settings.vm.close.to.stop.distance}")
     int closeToNextStopDistance;
 
+    @Autowired
     protected SiriToGtfsRealtimeService rtService;
+
+    @Autowired
+    protected ServiceJourneyService serviceJourneyService;
 
     @Mock
     protected RedisService redisService;
@@ -47,13 +53,14 @@ public abstract class SiriToGtfsRealtimeServiceTest {
     @Before
     public void before() {
         redisService = Mockito.mock(RedisService.class);
-        rtService = new SiriToGtfsRealtimeService(new AlertFactory(),
-                redisService,
-                datasourceETWhitelist,
-                datasourceVMWhitelist,
-                datasourceSXWhitelist,
-                closeToNextStopPercentage,
-                closeToNextStopDistance);
+//        rtService = new SiriToGtfsRealtimeService(new AlertFactory(),
+//                redisService,
+//                serviceJourneyService,
+//                datasourceETWhitelist,
+//                datasourceVMWhitelist,
+//                datasourceSXWhitelist,
+//                closeToNextStopPercentage,
+//                closeToNextStopDistance);
     }
 
     @After

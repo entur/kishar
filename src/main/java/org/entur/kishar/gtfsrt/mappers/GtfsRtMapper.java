@@ -11,12 +11,16 @@ import org.entur.avro.realtime.siri.model.OccupancyEnum;
 import org.entur.avro.realtime.siri.model.ProgressBetweenStopsRecord;
 import org.entur.avro.realtime.siri.model.RecordedCallRecord;
 import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
+import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
+import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -24,13 +28,15 @@ public class GtfsRtMapper extends AvroHelper {
 
     private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
     private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:MM:ss");
+    private final ServiceJourneyService serviceJourneyService;
 
     private int closeToNextStopPercentage;
     private int closeToNextStopDistance;
 
-    public GtfsRtMapper(int closeToNextStopPercentage, int closeToNextStopDistance) {
+    public GtfsRtMapper(int closeToNextStopPercentage, int closeToNextStopDistance, ServiceJourneyService serviceJourneyService) {
         this.closeToNextStopPercentage = closeToNextStopPercentage;
         this.closeToNextStopDistance = closeToNextStopDistance;
+        this.serviceJourneyService = serviceJourneyService;
     }
 
     public GtfsRealtime.TripUpdate.Builder mapTripUpdateFromVehicleJourney(EstimatedVehicleJourneyRecord vehicleJourney) {
@@ -207,6 +213,9 @@ public class GtfsRtMapper extends AvroHelper {
     private GtfsRealtime.TripDescriptor getMonitoredVehicleJourneyAsTripDescriptor(MonitoredVehicleJourneyRecord mvj) {
 
         if (mvj.getFramedVehicleJourneyRef() == null) {
+            if (mvj.getVehicleJourneyRef() != null) {
+                return getVehicleJourneyRefAsTripDescriptor(mvj.getVehicleJourneyRef(), mvj.getLineRef(), mvj.getOriginAimedDepartureTime());
+            }
             return null;
         }
 
@@ -230,13 +239,45 @@ public class GtfsRtMapper extends AvroHelper {
         return td.build();
     }
 
+    private GtfsRealtime.TripDescriptor getVehicleJourneyRefAsTripDescriptor(CharSequence vehicleJourneyRef, CharSequence lineRef, CharSequence originAimedDepartureTime) {
+
+        GtfsRealtime.TripDescriptor.Builder td = GtfsRealtime.TripDescriptor.newBuilder();
+
+        ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(vehicleJourneyRef.toString());
+
+        if (serviceJourney != null) {
+            td.setTripId(serviceJourney.getId());
+
+            if (lineRef != null) {
+                td.setRouteId(lineRef.toString());
+            }
+
+            if (originAimedDepartureTime != null) {
+
+                final Date date = new Date(getInstant(originAimedDepartureTime).toEpochMilli());
+
+                td.setStartDate(gtfsRtDateFormat.format(date));
+                td.setStartTime(gtfsRtTimeFormat.format(date));
+            } else if (serviceJourney.getDate() != null){
+                td.setStartDate(serviceJourney.getDate().replaceAll("-", ""));
+            }
+            return td.build();
+        }
+        return null;
+    }
+
 
     private GtfsRealtime.TripDescriptor getEstimatedVehicleJourneyAsTripDescriptor(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
         GtfsRealtime.TripDescriptor.Builder td = GtfsRealtime.TripDescriptor.newBuilder();
-        FramedVehicleJourneyRefRecord fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
-        td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
-
+        if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
+            FramedVehicleJourneyRefRecord fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
+            td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
+        } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
+            ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(estimatedVehicleJourney.getDatedVehicleJourneyRef().toString());
+            td.setTripId(serviceJourney.getId());
+            td.setStartDate(serviceJourney.getDate());
+        }
         if (estimatedVehicleJourney.getLineRef() != null) {
             td.setRouteId(estimatedVehicleJourney.getLineRef().toString());
         }

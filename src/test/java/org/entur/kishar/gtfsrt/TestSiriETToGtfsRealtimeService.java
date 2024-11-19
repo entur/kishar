@@ -10,6 +10,7 @@ import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
 import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
 import org.entur.avro.realtime.siri.model.SiriRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
+import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -206,9 +207,10 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     @Test
     public void testEtToTripUpdateFilterOnDatasource() throws IOException {
         // Specifying local service for specific datasource-testing
-        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), redisService,
-                Lists.newArrayList("RUT", "BNR"), Lists.newArrayList(),
-                Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
+//        SiriToGtfsRealtimeService rtService = new SiriToGtfsRealtimeService(new AlertFactory(), redisService,
+//                serviceJourneyService,
+//                Lists.newArrayList("RUT", "BNR"), Lists.newArrayList(),
+//                Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
@@ -220,15 +222,15 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         SiriRecord siriRUT = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef1, datasource1);
         SiriRecord siriBNR = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef2, datasource2);
 
-        Map<String, byte[]> redisMap = getRedisMap(localRtService, siriRUT);
-        Map<String, byte[]> siriBnrMap = getRedisMap(localRtService, siriBNR);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siriRUT);
+        Map<String, byte[]> siriBnrMap = getRedisMap(rtService, siriBNR);
 
         redisMap.putAll(siriBnrMap);
 
         when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
-        localRtService.writeOutput();
+        rtService.writeOutput();
 
-        Object tripUpdates = localRtService.getTripUpdates("application/json", "RUT");
+        Object tripUpdates = rtService.getTripUpdates("application/json", "RUT");
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -243,7 +245,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         assertEquals(1, tripUpdate.getStopTimeUpdateCount());
 
-        tripUpdates = localRtService.getTripUpdates("application/json", "BNR");
+        tripUpdates = rtService.getTripUpdates("application/json", "BNR");
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -258,7 +260,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         assertEquals(1, tripUpdate.getStopTimeUpdateCount());
 
-        tripUpdates = localRtService.getTripUpdates("application/json", null);
+        tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -271,7 +273,6 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     @Test
     public void testEtToTripUpdateNoWhitelist() throws IOException {
-        SiriToGtfsRealtimeService localRtService = new SiriToGtfsRealtimeService(new AlertFactory(), redisService, Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
@@ -280,12 +281,12 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(localRtService, siri);
+        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
 
         when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
-        localRtService.writeOutput();
+        rtService.writeOutput();
 
-        Object tripUpdates = localRtService.getTripUpdates("application/json", null);
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 

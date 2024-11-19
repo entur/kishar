@@ -28,7 +28,6 @@ import org.entur.avro.realtime.siri.model.EstimatedJourneyVersionFrameRecord;
 import org.entur.avro.realtime.siri.model.EstimatedTimetableDeliveryRecord;
 import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
 import org.entur.avro.realtime.siri.model.FramedVehicleJourneyRefRecord;
-import org.entur.avro.realtime.siri.model.MonitoredVehicleJourneyRecord;
 import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
 import org.entur.avro.realtime.siri.model.RecordedCallRecord;
 import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
@@ -40,6 +39,7 @@ import org.entur.avro.realtime.siri.model.VehicleMonitoringDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
+import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
@@ -98,6 +98,7 @@ public class SiriToGtfsRealtimeService {
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Autowired RedisService redisService,
+                                     @Autowired ServiceJourneyService serviceJourneyService,
                                      @Value("${kishar.datasource.et.whitelist}") List<String> datasourceETWhitelist,
                                      @Value("${kishar.datasource.vm.whitelist}") List<String> datasourceVMWhitelist,
                                      @Value("${kishar.datasource.sx.whitelist}") List<String> datasourceSXWhitelist,
@@ -108,7 +109,7 @@ public class SiriToGtfsRealtimeService {
         this.datasourceSXWhitelist = datasourceSXWhitelist;
         this.alertFactory = alertFactory;
         this.redisService = redisService;
-        this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance);
+        this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance, serviceJourneyService);
     }
 
     public void reset() {
@@ -200,15 +201,22 @@ public class SiriToGtfsRealtimeService {
             Preconditions.checkState(datasourceVMWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
         }
 
-        Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
-        checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
+        if (vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef() != null) {
+            checkPreconditions(vehicleActivity.getMonitoredVehicleJourney().getFramedVehicleJourneyRef());
+        } else {
+            Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney().getVehicleRef());
+        }
+
 
     }
 
     private void checkPreconditions(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
-        Preconditions.checkNotNull(estimatedVehicleJourney.getFramedVehicleJourneyRef());
-        checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
+        if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
+            checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
+        } else {
+            Preconditions.checkNotNull(estimatedVehicleJourney.getDatedVehicleJourneyRef());
+        }
 
         String datasource = estimatedVehicleJourney.getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
@@ -252,21 +260,14 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
     }
 
-    private TripAndVehicleKey getKey(VehicleActivityRecord vehicleActivity) {
+    private TripAndVehicleKey getKey(String tripId, String startDate, CharSequence vehicleRef) {
 
-        MonitoredVehicleJourneyRecord mvj = vehicleActivity.getMonitoredVehicleJourney();
-
-        return getTripAndVehicleKey(mvj.getVehicleRef(), mvj.getFramedVehicleJourneyRef());
-    }
-
-    private TripAndVehicleKey getTripAndVehicleKey(CharSequence vehicleRef, FramedVehicleJourneyRefRecord fvjRef) {
         String vehicle = null;
         if (vehicleRef != null) {
             vehicle = vehicleRef.toString();
         }
 
-        return TripAndVehicleKey.fromTripIdServiceDateAndVehicleId(
-                fvjRef.getDatedVehicleJourneyRef().toString(), fvjRef.getDataFrameRef().toString(), vehicle);
+        return TripAndVehicleKey.fromTripIdServiceDateAndVehicleId(tripId, startDate, vehicle);
     }
 
     public void writeOutput() {
@@ -327,15 +328,15 @@ public class SiriToGtfsRealtimeService {
         return feedMessageMap;
     }
 
-    private String getTripIdForEstimatedVehicleJourney(EstimatedVehicleJourneyRecord mvj) {
+    private String getTripIdForEstimatedVehicleJourney(TripUpdate.Builder tripUpdateBuilder) {
         StringBuilder b = new StringBuilder();
-        FramedVehicleJourneyRefRecord fvjRef = mvj.getFramedVehicleJourneyRef();
-        b.append((fvjRef.getDatedVehicleJourneyRef()));
+
+        b.append((tripUpdateBuilder.getTrip().getTripId()));
         b.append('-');
-        b.append(fvjRef.getDataFrameRef());
-        if (mvj.getVehicleRef() != null) {
+        b.append(tripUpdateBuilder.getTrip().getStartDate());
+        if (tripUpdateBuilder.getVehicle() != null) {
             b.append('-');
-            b.append(mvj.getVehicleRef());
+            b.append(tripUpdateBuilder.getVehicle().getId());
         }
         return b.toString();
     }
@@ -461,7 +462,11 @@ public class SiriToGtfsRealtimeService {
                 }
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
-                String key = getVehicleIdForKey(getKey(activity));
+                String key = getVehicleIdForKey(getKey(
+                        builder.getTrip().getTripId(),
+                        builder.getTrip().getStartDate(),
+                        activity.getMonitoredVehicleJourney().getVehicleRef())
+                );
                 entity.setId(key);
 
                 entity.setVehicle(builder);
@@ -537,7 +542,7 @@ public class SiriToGtfsRealtimeService {
                 TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
-                String key = getTripIdForEstimatedVehicleJourney(estimatedVehicleJourney);
+                String key = getTripIdForEstimatedVehicleJourney(builder);
                 entity.setId(key);
 
                 entity.setTripUpdate(builder);
@@ -613,6 +618,9 @@ public class SiriToGtfsRealtimeService {
 
                 Instant endTime = null;
                 for (ValidityPeriodRecord range : ptSituationElement.getValidityPeriods()) {
+                    if (range.getEndTime() == null) {
+                        continue;
+                    }
                     Instant rangeEndTimestamp = getInstant(range.getEndTime());
                     if (rangeEndTimestamp == null) {
                         endTime = null;
@@ -625,6 +633,8 @@ public class SiriToGtfsRealtimeService {
                     timeToLive = Duration.newBuilder().setSeconds(
                             endTime.getEpochSecond() - Instant.now().getEpochSecond()
                     ).build();
+                } else {
+                    timeToLive = Duration.newBuilder().setSeconds(3600*24*365).build();
                 }
 
                 result.put(
@@ -633,7 +643,7 @@ public class SiriToGtfsRealtimeService {
                                 ptSituationElement.getParticipantRef().toString()).asString(),
                         new GtfsRtData(entity.build().toByteArray(), timeToLive));
             } catch (Exception e) {
-                //LOG.debug("Failed parsing alerts", e);
+                LOG.warn("Failed parsing alerts", e);
             }
         }
 

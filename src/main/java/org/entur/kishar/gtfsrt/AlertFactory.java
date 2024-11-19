@@ -32,12 +32,17 @@ import org.entur.avro.realtime.siri.model.InfoLinkRecord;
 import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
 import org.entur.avro.realtime.siri.model.StopPointsRecord;
 import org.entur.avro.realtime.siri.model.ValidityPeriodRecord;
+import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
+import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
 import org.entur.kishar.gtfsrt.mappers.AvroHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,6 +52,9 @@ public class AlertFactory extends AvroHelper {
     private static final Logger _log = LoggerFactory.getLogger(AlertFactory.class);
     private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyyMMdd");
     private static final SimpleDateFormat TIME_FORMATTER = new SimpleDateFormat("HH:mm:ss");
+
+    @Autowired
+    ServiceJourneyService serviceJourneyService;
 
     public Alert.Builder createAlertFromSituation(
             PtSituationElementRecord ptSituation) {
@@ -89,6 +97,8 @@ public class AlertFactory extends AvroHelper {
                 }
                 if (validityPeriod.getEndTime() != null) {
                     timeRange.setEnd(getInstant(validityPeriod.getEndTime()).getEpochSecond());
+                } else {
+                    timeRange.setEnd(Instant.now().plus(365, ChronoUnit.DAYS).getEpochSecond());
                 }
 
                 if (timeRange.hasStart() || timeRange.hasEnd()) {
@@ -209,6 +219,22 @@ public class AlertFactory extends AvroHelper {
                             tripDescriptor.setStartDate(dataFrameStr);
                         }
                         tripDescriptors.add(tripDescriptor.build());
+                    }
+
+                    if (affectedVehicleJourney.getDatedVehicleJourneyRefs() != null) {
+                        for (CharSequence datedVehicleJourneyRef : affectedVehicleJourney.getDatedVehicleJourneyRefs()) {
+                            if (datedVehicleJourneyRef != null) {
+                                String datedVehicleJourneyRefStr = datedVehicleJourneyRef.toString();
+                                ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(datedVehicleJourneyRefStr);
+                                if (serviceJourney != null) {
+                                    tripDescriptors.add(
+                                            TripDescriptor.newBuilder()
+                                                    .setTripId(serviceJourney.getId())
+                                                    .setStartDate(serviceJourney.getDate().replaceAll("-",""))
+                                                    .build());
+                                }
+                            }
+                        }
                     }
 
                     if (affectedVehicleJourney.getRoutes() != null) {

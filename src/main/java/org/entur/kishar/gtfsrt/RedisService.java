@@ -42,6 +42,8 @@ public class RedisService {
     private static Logger LOG = LoggerFactory.getLogger(RedisService.class);
     private final boolean redisEnabled;
 
+    private static Map<String, Map<String, byte[]>> hashMapRedisMock;
+
     RedissonClient redisson;
 
     public RedisService(@Value("${kishar.redis.enabled:false}") boolean redisEnabled,
@@ -59,7 +61,8 @@ public class RedisService {
 
             redisson = Redisson.create(config);
         } else {
-            LOG.info("Redis not enabled");
+            LOG.info("Redis not enabled - using hashMap");
+            hashMapRedisMock = Maps.newHashMap();
         }
     }
     public void resetAllData() {
@@ -74,6 +77,10 @@ public class RedisService {
         LOG.info("Before - ALERT: " + redisson.getMap(Type.ALERT.mapIdentifier).size());
         redisson.getMap(Type.ALERT.mapIdentifier).clear();
         LOG.info("After - ALERT: " + redisson.getMap(Type.ALERT.mapIdentifier).size());
+
+        if (hashMapRedisMock != null) {
+            hashMapRedisMock.clear();
+        }
     }
 
     public void writeGtfsRt(Map<String, GtfsRtData> gtfsRt, Type type) {
@@ -86,6 +93,13 @@ public class RedisService {
                     gtfsRtMap.put(key.getBytes(), gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
                 }
             }
+        } else {
+            Map<String, byte[]> map = hashMapRedisMock.getOrDefault(type.getMapIdentifier(), Maps.newHashMap());
+            for (String key : gtfsRt.keySet()) {
+                GtfsRtData gtfsRtData = gtfsRt.get(key);
+                map.put(key, gtfsRtData.getData());
+            }
+            hashMapRedisMock.put(type.getMapIdentifier(), map);
         }
     }
 
@@ -105,7 +119,7 @@ public class RedisService {
 
             return result;
         } else {
-            return Maps.newHashMap();
+            return hashMapRedisMock.getOrDefault(type.getMapIdentifier(), new HashMap<>());
         }
     }
 }
