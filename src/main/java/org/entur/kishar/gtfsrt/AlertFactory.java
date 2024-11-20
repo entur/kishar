@@ -44,12 +44,13 @@ import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Service
 public class AlertFactory extends AvroHelper {
 
-    private static final Logger _log = LoggerFactory.getLogger(AlertFactory.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlertFactory.class);
     private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyyMMdd");
     private static final SimpleDateFormat TIME_FORMATTER = new SimpleDateFormat("HH:mm:ss");
 
@@ -65,6 +66,9 @@ public class AlertFactory extends AvroHelper {
         handleValidityPeriod(ptSituation, alert);
 //        handleReasons(ptSituation, alert);
         handleAffects(ptSituation, alert);
+        if (alert.getInformedEntityCount() == 0) {
+            LOGGER.info("No informed entities found/matched for alert {}", ptSituation.getSituationNumber());
+        }
 //        handleConsequences(ptSituation, alert);
         handleUrls(ptSituation, alert);
 
@@ -148,7 +152,7 @@ public class AlertFactory extends AvroHelper {
 //            }
 //        }
 
-        if (affectsRecord.getStopPoints() != null) {
+        if (affectsRecord.getStopPoints() != null && !affectsRecord.getStopPoints().isEmpty()) {
             List<AffectedStopPointRecord> stopPoints = affectsRecord.getStopPoints();
 
             if (stopPoints != null) {
@@ -167,9 +171,9 @@ public class AlertFactory extends AvroHelper {
             }
         }
 
-        if (affectsRecord.getVehicleJourneys() != null) {
+        if (affectsRecord.getVehicleJourneys() != null && !affectsRecord.getVehicleJourneys().isEmpty()) {
             List<AffectedVehicleJourneyRecord> vehicleJourneys = affectsRecord.getVehicleJourneys();
-            if (vehicleJourneys != null) {
+            if (vehicleJourneys != null && !vehicleJourneys.isEmpty()) {
 
                 for (AffectedVehicleJourneyRecord affectedVehicleJourney : vehicleJourneys) {
 
@@ -185,11 +189,11 @@ public class AlertFactory extends AvroHelper {
                     if (affectedVehicleJourney.getOriginAimedDepartureTime() != null) {
 
                         startDate = DATE_FORMATTER.format(
-                                getInstant(affectedVehicleJourney.getOriginAimedDepartureTime())
+                                new Date(getInstant(affectedVehicleJourney.getOriginAimedDepartureTime()).toEpochMilli())
                         );
                     }
 
-                    if (affectedVehicleJourney.getVehicleJourneyRefs() != null) {
+                    if (affectedVehicleJourney.getVehicleJourneyRefs() != null && !affectedVehicleJourney.getVehicleJourneyRefs().isEmpty()) {
 
                         List<CharSequence> vehicleJourneyRefs = affectedVehicleJourney.getVehicleJourneyRefs();
                         for (CharSequence tripRef : vehicleJourneyRefs) {
@@ -221,17 +225,18 @@ public class AlertFactory extends AvroHelper {
                         tripDescriptors.add(tripDescriptor.build());
                     }
 
-                    if (affectedVehicleJourney.getDatedVehicleJourneyRefs() != null) {
+                    if (affectedVehicleJourney.getDatedVehicleJourneyRefs() != null && !affectedVehicleJourney.getDatedVehicleJourneyRefs().isEmpty()) {
                         for (CharSequence datedVehicleJourneyRef : affectedVehicleJourney.getDatedVehicleJourneyRefs()) {
                             if (datedVehicleJourneyRef != null) {
                                 String datedVehicleJourneyRefStr = datedVehicleJourneyRef.toString();
                                 ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(datedVehicleJourneyRefStr);
-                                if (serviceJourney != null) {
-                                    tripDescriptors.add(
-                                            TripDescriptor.newBuilder()
-                                                    .setTripId(serviceJourney.getId())
-                                                    .setStartDate(serviceJourney.getDate().replaceAll("-",""))
-                                                    .build());
+                                if (serviceJourney != null && serviceJourney.getId() != null) {
+                                    TripDescriptor.Builder builder = TripDescriptor.newBuilder()
+                                                                            .setTripId(serviceJourney.getId());
+                                    if (serviceJourney.getDate() != null) {
+                                        builder.setStartDate(serviceJourney.getDate().replaceAll("-",""));
+                                    }
+                                    tripDescriptors.add(builder.build());
                                 }
                             }
                         }
@@ -282,7 +287,7 @@ public class AlertFactory extends AvroHelper {
             }
         }
 
-        if (affectsRecord.getNetworks() != null) {
+        if (affectsRecord.getNetworks() != null && !affectsRecord.getNetworks().isEmpty()) {
             List<AffectedNetworkRecord> networks = affectsRecord.getNetworks();
             for (AffectedNetworkRecord affectedNetwork : networks) {
 
@@ -328,7 +333,7 @@ public class AlertFactory extends AvroHelper {
 
         }
 
-        if (affectsRecord.getStopPlaces() != null) {
+        if (affectsRecord.getStopPlaces() != null && !affectsRecord.getStopPlaces().isEmpty()) {
             List<AffectedStopPlaceRecord> stopPlaces = affectsRecord.getStopPlaces();
             for (AffectedStopPlaceRecord affectedStopPlace : stopPlaces) {
                 if (affectedStopPlace.getStopPlaceRef() != null) {

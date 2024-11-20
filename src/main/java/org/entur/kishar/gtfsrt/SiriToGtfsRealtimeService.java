@@ -642,6 +642,8 @@ public class SiriToGtfsRealtimeService {
                                 key,
                                 ptSituationElement.getParticipantRef().toString()).asString(),
                         new GtfsRtData(entity.build().toByteArray(), timeToLive));
+            } catch (IllegalStateException e) {
+                LOG.info("Failed parsing alert {}: {}", ptSituationElement.getSituationNumber(), e.getMessage());
             } catch (Exception e) {
                 LOG.warn("Failed parsing alerts", e);
             }
