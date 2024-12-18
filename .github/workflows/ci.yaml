@@ -61,3 +61,21 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git tag --annotate "$GHA_DOCKER_PUSH_IMAGE_TAG" -m "chore(tag): $GHA_DOCKER_PUSH_IMAGE_TAG [skip ci]" --force
           git push origin "$GHA_DOCKER_PUSH_IMAGE_TAG" --force
+  post_build:
+    if: github.repository_owner == 'entur' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [ image ]
+    steps:
+      - name: Trigger downstream CI
+        run: |
+            repo_owner="entur"
+            repo_name="kishar-deployment-config"
+            event_type="trigger-downstream-ci"
+            service="kishar"
+            version="${{ env.GHA_DOCKER_PUSH_IMAGE_TAG }}"
+            
+            curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.everest-preview+json" \
+            -H "Content-Type: application/json" https://api.github.com/repos/$repo_owner/$repo_name/dispatches \
+            -d "{\"event_type\": \"$event_type\", \"client_payload\": {\"service\": \"$service\", \"version\": \"$version\", \"unit\": false, \"integration\": true}}"
