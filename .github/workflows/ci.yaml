@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ tests ]
     outputs:
-      GHA_DOCKER_PUSH_IMAGE_TAG: ${{ steps.set-output.GHA_DOCKER_PUSH_IMAGE_TAG }}
+      image_tag: ${{ steps.set-output.GHA_DOCKER_PUSH_IMAGE_TAG }}
     env:
       CONTAINER_REPO: docker.io/entur/kishar
       CONTAINER_REGISTRY_USER: ${{ secrets.DOCKERHUB_LOGIN }}
@@ -69,14 +69,15 @@ jobs:
     if: github.repository_owner == 'entur' && github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [ image ]
+    env:
+      version: ${{ needs.image.outputs.image_tag }}
     steps:
       - name: Trigger downstream CI
         run: |
             repo_owner="entur"
             repo_name="kishar-deployment-config"
             event_type="trigger-downstream-ci"
-            service="kishar"
-            version=${{ needs.image.outputs.GHA_DOCKER_PUSH_IMAGE_TAG }}
+            service="kishar"   
             
             curl -X POST \
             -H "Authorization: token ${{ secrets.GITFLOW_PAT }}" \
