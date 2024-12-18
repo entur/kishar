@@ -33,6 +33,8 @@ jobs:
     if: github.repository_owner == 'entur' && github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [ tests ]
+    outputs:
+      GHA_DOCKER_PUSH_IMAGE_TAG: ${{ steps.set-output.GHA_DOCKER_PUSH_IMAGE_TAG }}
     env:
       CONTAINER_REPO: docker.io/entur/kishar
       CONTAINER_REGISTRY_USER: ${{ secrets.DOCKERHUB_LOGIN }}
@@ -47,9 +49,10 @@ jobs:
           distribution: temurin
           cache: maven
       - name: set variables
+        id: set-output
         run: |
           echo "GHA_DOCKER_PUSH_IMAGE_TAG=`date +%Y-%m-%dT%H-%M`" >> $GITHUB_ENV
-
+          run: echo "::set-output name=GHA_DOCKER_PUSH_IMAGE_TAG::${{ env.GHA_DOCKER_PUSH_IMAGE_TAG }"
       - name: Build container image with Jib, push to container repo
         run: |
           mvn --batch-mode compile com.google.cloud.tools:jib-maven-plugin:build -Djib.to.tags=latest,${{ env.GHA_DOCKER_PUSH_IMAGE_TAG }}
@@ -72,10 +75,10 @@ jobs:
             repo_name="kishar-deployment-config"
             event_type="trigger-downstream-ci"
             service="kishar"
-            version="${{ env.GHA_DOCKER_PUSH_IMAGE_TAG }}"
+            version="${{ needs.image.outputs.GHA_DOCKER_PUSH_IMAGE_TAG }}"
             
             curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: token ${{ secrets.GITFLOW_PAT }}" \
             -H "Accept: application/vnd.github.everest-preview+json" \
             -H "Content-Type: application/json" https://api.github.com/repos/$repo_owner/$repo_name/dispatches \
             -d "{\"event_type\": \"$event_type\", \"client_payload\": {\"service\": \"$service\", \"version\": \"$version\", \"unit\": false, \"integration\": true}}"
