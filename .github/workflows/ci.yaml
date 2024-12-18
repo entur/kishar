@@ -67,7 +67,7 @@ jobs:
             repo_name="kishar-deployment-config"
             event_type="trigger-downstream-ci"
             service="kishar"   
-            echo "Triggering downstream CI for $service with version "$GHA_DOCKER_PUSH_IMAGE_TAG"
+            echo "Triggering downstream CI for $service with version $GHA_DOCKER_PUSH_IMAGE_TAG"
             curl -X POST \
             -H "Authorization: token ${{ secrets.GITFLOW_PAT }}" \
             -H "Accept: application/vnd.github.everest-preview+json" \
