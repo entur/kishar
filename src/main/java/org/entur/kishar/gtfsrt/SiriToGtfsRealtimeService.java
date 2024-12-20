@@ -258,6 +258,9 @@ public class SiriToGtfsRealtimeService {
     private void checkPreconditions(FramedVehicleJourneyRefRecord fvjRef) {
         Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
         Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
+        Preconditions.checkArgument(
+                fvjRef.getDatedVehicleJourneyRef() != null && !fvjRef.getDatedVehicleJourneyRef().equals("null"),
+                "DatedVehicleJourneyRef");
     }
 
     private TripAndVehicleKey getKey(String tripId, String startDate, CharSequence vehicleRef) {

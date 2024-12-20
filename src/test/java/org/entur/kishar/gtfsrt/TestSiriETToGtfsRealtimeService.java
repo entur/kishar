@@ -1,22 +1,14 @@
 package org.entur.kishar.gtfsrt;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
-import org.entur.avro.realtime.siri.model.EstimatedCallRecord;
-import org.entur.avro.realtime.siri.model.EstimatedJourneyVersionFrameRecord;
-import org.entur.avro.realtime.siri.model.EstimatedTimetableDeliveryRecord;
-import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
-import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
 import org.entur.avro.realtime.siri.model.SiriRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
-import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,8 +16,6 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
-import static org.entur.kishar.gtfsrt.Helper.createFramedVehicleJourneyRefStructure;
-import static org.mockito.Mockito.when;
 
 public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
@@ -35,16 +25,13 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         int stopCount = 5;
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, stopCount, delayPerStop, datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
 
         // GTFS-RT is produced asynchronously - should be empty at first
-
         Object tripUpdates = rtService.getTripUpdates("application/json", null);
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
@@ -78,13 +65,11 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String lineRefValue = "TST:Line:1234";
         int stopCount = 5;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, null), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, stopCount, 30, datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
 
         // GTFS-RT is produced asynchronously - should be empty at first
 
@@ -146,13 +131,11 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         int stopCount = 5;
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(stopCount, delayPerStop), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, stopCount, delayPerStop, datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
         rtService.writeOutput();
 
         Object tripUpdates = rtService.getTripUpdates("application/json", null);
@@ -209,28 +192,25 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         // Specifying local service for specific datasource-testing
 //        SiriToGtfsRealtimeService rtService = new SiriToGtfsRealtimeService(new AlertFactory(), redisService,
 //                serviceJourneyService,
-//                Lists.newArrayList("RUT", "BNR"), Lists.newArrayList(),
+//                Lists.newArrayList("TST", "BNR"), Lists.newArrayList(),
 //                Lists.newArrayList(), NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE);
 
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
         String datedVehicleJourneyRef1 = "TST:ServiceJourney:1234";
         String datedVehicleJourneyRef2 = "TST:ServiceJourney:1235";
-        String datasource1 = "RUT";
+        String datasource1 = "TST";
         String datasource2 = "BNR";
 
-        SiriRecord siriRUT = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef1, datasource1);
-        SiriRecord siriBNR = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef2, datasource2);
+        SiriRecord siriTST = createSiriEtDelivery(lineRefValue, 1, delayPerStop, datedVehicleJourneyRef1, datasource1);
+        SiriRecord siriBNR = createSiriEtDelivery(lineRefValue, 1, delayPerStop, datedVehicleJourneyRef2, datasource2);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siriRUT);
-        Map<String, byte[]> siriBnrMap = getRedisMap(rtService, siriBNR);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siriTST), RedisService.Type.TRIP_UPDATE);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siriBNR), RedisService.Type.TRIP_UPDATE);
 
-        redisMap.putAll(siriBnrMap);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
         rtService.writeOutput();
 
-        Object tripUpdates = rtService.getTripUpdates("application/json", "RUT");
+        Object tripUpdates = rtService.getTripUpdates("application/json", "TST");
         assertNotNull(tripUpdates);
         assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
 
@@ -277,13 +257,11 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, 1, delayPerStop, datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
         rtService.writeOutput();
 
         Object tripUpdates = rtService.getTripUpdates("application/json", null);
@@ -311,11 +289,9 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String datasource = "NSB";
 
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(1, delayPerStop), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, 1, delayPerStop, datedVehicleJourneyRef, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
         rtService.writeOutput();
 
         Object tripUpdates = rtService.getTripUpdates("application/json", null);
@@ -331,18 +307,16 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     public void testEtWithoutFramedVehicleRef() throws IOException {
         String lineRefValue = "TST:Line:1234";
         String datedVehicleJourneyRef = null;
-        String datasource = "RUT";
+        String datasource = "TST";
 
         // Assert that ET is ignored when framedVehicleRef is null
-        SiriRecord siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef, datasource);
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, 5, 30, datedVehicleJourneyRef, datasource);
         assertNotNull(siri.getServiceDelivery().getEstimatedTimetableDeliveries().get(0)
                 .getEstimatedJourneyVersionFrames().get(0)
                 .getEstimatedVehicleJourneys().get(0)
                 .getFramedVehicleJourneyRef());
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
         rtService.writeOutput();
 
         Object tripUpdates = rtService.getTripUpdates("application/json", null);
@@ -355,16 +329,14 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
 
         datedVehicleJourneyRef = "TTT:ServiceJourney:1234";
-        siri = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, 30), datedVehicleJourneyRef, datasource);
+        siri = createSiriEtDelivery(lineRefValue, 5, 30, datedVehicleJourneyRef, datasource);
 
         assertNotNull(siri.getServiceDelivery().getEstimatedTimetableDeliveries().get(0)
                 .getEstimatedJourneyVersionFrames().get(0)
                 .getEstimatedVehicleJourneys().get(0)
                 .getFramedVehicleJourneyRef());
 
-        redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
         rtService.writeOutput();
 
         tripUpdates = rtService.getTripUpdates("application/json", null);
@@ -382,74 +354,97 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
-        SiriRecord et = createSiriEtDelivery(lineRefValue, createEstimatedCalls(5, delayPerStop), datedVehicleJourneyRef, datasource);
+        SiriRecord et = createSiriEtDelivery(lineRefValue, 5, delayPerStop, datedVehicleJourneyRef, datasource);
 
         Map<String, GtfsRtData> result = rtService.convertSiriToGtfsRt(et);
 
         assertFalse(result.isEmpty());
     }
 
-    private SiriRecord createSiriEtDelivery(String lineRefValue, List<EstimatedCallRecord> calls, String datedVehicleJourneyRef, String datasource) {
+    private SiriRecord createSiriEtDelivery(String lineRefValue, int calls, int delayPerStop, String datedVehicleJourneyRef, String datasource) {
+        String startTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        String etXmlHead = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + startTime +"</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <EstimatedTimetableDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + startTime +"</ResponseTimestamp>\n" +
+                "            <EstimatedJourneyVersionFrame>\n" +
+                "                <RecordedAtTime>" + startTime +"</RecordedAtTime>\n" +
+                "                <EstimatedVehicleJourney>\n" +
+                "                    <RecordedAtTime>" + startTime +"</RecordedAtTime>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <DirectionRef>0</DirectionRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OriginName>Teste Hageby</OriginName>\n" +
+                "                    <OperatorRef>" + datasource +":Operator:123</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>"+ datasource +"</DataSource>\n" +
+                "                    <EstimatedCalls>\n";
 
-        EstimatedVehicleJourneyRecord.Builder estimatedVehicleJourneyBuilder = EstimatedVehicleJourneyRecord.newBuilder()
-                .setLineRef(lineRefValue)
-                .setDataSource(datasource)
-                .setEstimatedCalls(calls);
+        String etXmlCalls = createEstimatedCalls(calls, delayPerStop);
 
-        if (datedVehicleJourneyRef != null) {
-            estimatedVehicleJourneyBuilder.setFramedVehicleJourneyRef(createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef));
-        }
+        String etXmlTail =
+                "                    </EstimatedCalls>\n" +
+                "                    <IsCompleteStopSequence>true</IsCompleteStopSequence>\n" +
+                "                </EstimatedVehicleJourney>\n" +
+                "            </EstimatedJourneyVersionFrame>\n" +
+                "        </EstimatedTimetableDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
 
-        EstimatedVehicleJourneyRecord estimatedVehicleJourney = estimatedVehicleJourneyBuilder.build();
-
-        EstimatedJourneyVersionFrameRecord etVersionFrame = EstimatedJourneyVersionFrameRecord.newBuilder()
-                .setEstimatedVehicleJourneys(List.of(estimatedVehicleJourney))
-                .build();
-
-        EstimatedTimetableDeliveryRecord etDelivery = EstimatedTimetableDeliveryRecord.newBuilder()
-                .setEstimatedJourneyVersionFrames(List.of(etVersionFrame))
-                .build();
-
-        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
-                .setEstimatedTimetableDeliveries(List.of(etDelivery))
-                .build();
-
-        return SiriRecord.newBuilder()
-                .setServiceDelivery(serviceDelivery)
-                .build();
+        return createSiriRecord(etXmlHead + etXmlCalls + etXmlTail);
     }
 
 
-    private List<EstimatedCallRecord> createEstimatedCalls(int stopCount, Integer addedDelayPerStop) {
-        List<EstimatedCallRecord> calls = new ArrayList<>();
+    private String createEstimatedCalls(int stopCount, Integer addedDelayPerStop) {
+
         ZonedDateTime startTime = ZonedDateTime.now();
+        StringBuilder callsXml = new StringBuilder();
 
         for (int i = 0; i < stopCount; i++) {
-            String stopPointRef = "TST:Quay:1234-";
+            String stopPointRef = "TST:Quay:1234-" + i;
 
-            EstimatedCallRecord.Builder call = EstimatedCallRecord.newBuilder()
-                    .setStopPointRef(stopPointRef);
+            callsXml.append(
+                    createCall(
+                            stopPointRef,
+                            i+1,
+                    startTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    startTime.plusSeconds(addedDelayPerStop).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                            i == 0,
+                            i == stopCount-1
+                            )
+            );
 
-            startTime = startTime.plusSeconds(60);
-            if (i > 0) {
-                call.setAimedArrivalTime(startTime.format(DateTimeFormatter.ISO_DATE_TIME));
-                if (addedDelayPerStop != null) {
-                    ZonedDateTime expected = startTime.plusSeconds(addedDelayPerStop);
-                    call.setExpectedArrivalTime(expected.format(DateTimeFormatter.ISO_DATE_TIME));
-                }
-            }
-            if (i < stopCount-1) {
-                call.setAimedDepartureTime(startTime.format(DateTimeFormatter.ISO_DATE_TIME));
+            startTime = startTime.plusSeconds(addedDelayPerStop).plusSeconds(60);
 
-                if (addedDelayPerStop != null) {
-                    ZonedDateTime expected = startTime.plusSeconds(addedDelayPerStop);
-                    call.setExpectedDepartureTime(expected.format(DateTimeFormatter.ISO_DATE_TIME));
-                }
-            }
-            calls.add(call.build());
         }
-        return calls;
+        return callsXml.toString();
+    }
+
+    private String createCall(String stopPointRef, int order, String aimedTime,
+                              String expectedTime, boolean skipArrival, boolean skipDeparture) {
+        return
+                "                        <EstimatedCall>\n" +
+                "                            <StopPointRef>" + stopPointRef + "</StopPointRef>\n" +
+                "                            <Order>" + order +"</Order>\n" +
+                        (skipArrival ? "":
+                "                            <AimedArrivalTime>" + aimedTime + "</AimedArrivalTime>\n" +
+                "                            <ExpectedArrivalTime>" + expectedTime + "</ExpectedArrivalTime>\n" +
+                "                            <ArrivalStatus>delayed</ArrivalStatus>\n" +
+                "                            <ArrivalBoardingActivity>noAlighting</ArrivalBoardingActivity>\n"
+                        ) +
+                        (skipDeparture ? "":
+                "                            <AimedDepartureTime>" + aimedTime + "</AimedDepartureTime>\n" +
+                "                            <ExpectedDepartureTime>"+ expectedTime + "</ExpectedDepartureTime>\n" +
+                "                            <DepartureStatus>delayed</DepartureStatus>\n"
+                        ) +
+                "                        </EstimatedCall>\n";
     }
 }

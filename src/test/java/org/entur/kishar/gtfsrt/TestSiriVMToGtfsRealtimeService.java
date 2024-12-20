@@ -3,18 +3,11 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.collect.Maps;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime;
-import org.entur.avro.realtime.siri.model.CallRecord;
 import org.entur.avro.realtime.siri.model.LocationRecord;
-import org.entur.avro.realtime.siri.model.MonitoredVehicleJourneyRecord;
-import org.entur.avro.realtime.siri.model.OccupancyEnum;
-import org.entur.avro.realtime.siri.model.ProgressBetweenStopsRecord;
-import org.entur.avro.realtime.siri.model.ServiceDeliveryRecord;
 import org.entur.avro.realtime.siri.model.SiriRecord;
-import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
-import org.entur.avro.realtime.siri.model.VehicleMonitoringDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
-import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import uk.org.siri.siri21.OccupancyEnumeration;
 
 import java.io.IOException;
 import java.time.ZonedDateTime;
@@ -26,7 +19,6 @@ import static junit.framework.TestCase.assertEquals;
 import static junit.framework.TestCase.assertFalse;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
-import static org.mockito.Mockito.when;
 
 public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest{
 
@@ -39,11 +31,11 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         double longitude = 59.63;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnum occupancy = OccupancyEnum.FULL;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.FULL;
         int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
         int distance = 10000;
 
@@ -53,9 +45,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
         rtService.writeOutput();
 
         GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
@@ -104,11 +94,11 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         double longitude = 59.63;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnum occupancy = OccupancyEnum.SEATS_AVAILABLE;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.SEATS_AVAILABLE;
         int progressPercentage = 51;
         int distance = NEXT_STOP_DISTANCE*2;
 
@@ -118,9 +108,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
         rtService.writeOutput();
 
         GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
@@ -144,11 +132,11 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         double longitude = 59.63;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnum occupancy = OccupancyEnum.STANDING_AVAILABLE;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.STANDING_AVAILABLE;
         int progressPercentage = NEXT_STOP_PERCENTAGE - 1;
         int distance = 10000;
 
@@ -158,9 +146,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 datedVehicleJourneyRef, vehicleRefValue, datasource, bearing,
                 velocity, occupancy, progressPercentage, distance, isVehicleAtStop);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
         rtService.writeOutput();
 
         GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
@@ -183,21 +169,17 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         String datedVehicleJourneyRef1 = "TST:ServiceJourney:1234";
         String datedVehicleJourneyRef2 = "TST:ServiceJourney:1235";
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource1 = "RUT";
+        String datasource1 = "TST";
         String datasource2 = "BNR";
 
-        SiriRecord siriRUT = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
+        SiriRecord siriTST = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef1, vehicleRefValue, datasource1);
         SiriRecord siriBNR = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef2, vehicleRefValue, datasource2);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siriRUT);
-        Map<String, byte[]> siriBnrMap = getRedisMap(rtService, siriBNR);
-
-        redisMap.putAll(siriBnrMap);
-
-        when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siriTST), RedisService.Type.VEHICLE_POSITION);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siriBNR), RedisService.Type.VEHICLE_POSITION);
         rtService.writeOutput();
 
-        Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
+        Object vehiclePositions = rtService.getVehiclePositions("application/json", "TST");
         assertNotNull(vehiclePositions);
         assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
 
@@ -230,13 +212,12 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         double longitude = 59.63;
         String datedVehicleJourneyRef = null;
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
         SiriRecord siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
 
-        Map<String, byte[]> redisMap = getRedisMap(rtService, siri);
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
 
-        when(redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION)).thenReturn(redisMap);
         rtService.writeOutput();
 
         Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
@@ -262,11 +243,11 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         double longitude = 59.63;
         String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
         String vehicleRefValue = "TST:Vehicle:1234";
-        String datasource = "RUT";
+        String datasource = "TST";
 
         float bearing = 123.45F;
         long velocity = 56;
-        OccupancyEnum occupancy = OccupancyEnum.FULL;
+        OccupancyEnumeration occupancy = OccupancyEnumeration.FULL;
         int progressPercentage = NEXT_STOP_PERCENTAGE + 1;
         int distance = 10000;
 
@@ -305,83 +286,95 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
     private SiriRecord createSiriVmDelivery(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue, String datasource) {
 
-        MonitoredVehicleJourneyRecord.Builder mvjBuilder = MonitoredVehicleJourneyRecord.newBuilder()
-                .setLineRef(lineRefValue)
-                .setVehicleRef(vehicleRefValue)
-                .setVehicleLocation(createLocation(longitude, latitude))
-                .setDataSource(datasource);
+        ZonedDateTime now = ZonedDateTime.now();
+        String vmXml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <MoreData>true</MoreData>\n" +
+                "        <VehicleMonitoringDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</ResponseTimestamp>\n" +
+                "            <VehicleActivity>\n" +
+                "                <RecordedAtTime>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</RecordedAtTime>\n" +
+                "                <ValidUntilTime>" + now.plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</ValidUntilTime>\n" +
+                "                <MonitoredVehicleJourney>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>309</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <VehicleLocation>\n" +
+                "                        <Longitude>" + longitude + "</Longitude>\n" +
+                "                        <Latitude>" + latitude + "</Latitude>\n" +
+                "                    </VehicleLocation>\n" +
+                "                    <VehicleStatus>inProgress</VehicleStatus>\n" +
+                "                    <VehicleRef>" + vehicleRefValue + "</VehicleRef>\n" +
+                "                    <IsCompleteStopSequence>false</IsCompleteStopSequence>\n" +
+                "                </MonitoredVehicleJourney>\n" +
+                "            </VehicleActivity>\n" +
+                "        </VehicleMonitoringDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
 
-        if (datedVehicleJourneyRef != null) {
-            mvjBuilder.setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef));
-        }
 
-        MonitoredVehicleJourneyRecord mvj = mvjBuilder.build();
-
-        VehicleActivityRecord activity = VehicleActivityRecord.newBuilder()
-                .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(SiriLibrary.getCurrentTime().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .setValidUntilTime(SiriLibrary.getCurrentTime().plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .build();
-
-        VehicleMonitoringDeliveryRecord vmDelivery = VehicleMonitoringDeliveryRecord.newBuilder()
-                .setVehicleActivities(List.of(activity))
-                .build();
-
-        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
-                .setVehicleMonitoringDeliveries(List.of(vmDelivery))
-                .build();
-
-        return SiriRecord.newBuilder()
-                .setServiceDelivery(serviceDelivery)
-                .build();
+        return createSiriRecord(vmXml);
     }
 
 
     private SiriRecord createSiriVmDelivery(String stopPointRef, String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef,
-                                      String vehicleRefValue, String datasource, float bearing, long velocity,
-                                      OccupancyEnum occupancy, double progressPercentage, double distance, boolean isVehicleAtStop) {
+                                            String vehicleRefValue, String datasource, float bearing, long velocity,
+                                            OccupancyEnumeration occupancy, double progressPercentage, double distance, boolean isVehicleAtStop) {
+
+        ZonedDateTime now = ZonedDateTime.now();
+        String vmXml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <MoreData>true</MoreData>\n" +
+                "        <VehicleMonitoringDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</ResponseTimestamp>\n" +
+                "            <VehicleActivity>\n" +
+                "                <RecordedAtTime>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</RecordedAtTime>\n" +
+                "                <ValidUntilTime>" + now.plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) +"</ValidUntilTime>\n" +
+                "                <ProgressBetweenStops>\n" +
+                "                    <LinkDistance>" + distance + "</LinkDistance>\n" +
+                "                    <Percentage>" + progressPercentage + "</Percentage>\n" +
+                "                </ProgressBetweenStops>\n" +
+                "                <MonitoredVehicleJourney>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>309</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <Occupancy>" + occupancy.value() + "</Occupancy>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <VehicleLocation>\n" +
+                "                        <Longitude>" + longitude + "</Longitude>\n" +
+                "                        <Latitude>" + latitude + "</Latitude>\n" +
+                "                    </VehicleLocation>\n" +
+                "                    <Bearing>" + bearing + "</Bearing>\n" +
+                "                    <Velocity>" + velocity + "</Velocity>\n" +
+                "                    <VehicleStatus>inProgress</VehicleStatus>\n" +
+                "                    <VehicleRef>" + vehicleRefValue + "</VehicleRef>\n" +
+                "                    <MonitoredCall>\n" +
+                "                        <StopPointRef>" + stopPointRef + "</StopPointRef>\n" +
+                "                        <VehicleAtStop>" + isVehicleAtStop + "</VehicleAtStop>\n" +
+                "                    </MonitoredCall>\n" +
+                "                    <IsCompleteStopSequence>false</IsCompleteStopSequence>\n" +
+                "                </MonitoredVehicleJourney>\n" +
+                "            </VehicleActivity>\n" +
+                "        </VehicleMonitoringDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
 
 
-
-        CallRecord monitoredCall = CallRecord.newBuilder()
-                .setVehicleAtStop(isVehicleAtStop)
-                .setStopPointRef(stopPointRef)
-                .build();
-
-        MonitoredVehicleJourneyRecord mvj = MonitoredVehicleJourneyRecord.newBuilder()
-                                .setLineRef(lineRefValue)
-                                .setFramedVehicleJourneyRef(Helper.createFramedVehicleJourneyRefStructure(datedVehicleJourneyRef))
-                                .setVehicleLocation(createLocation(longitude, latitude))
-                                .setVehicleRef(vehicleRefValue)
-                                .setBearing(bearing)
-                                .setVelocity((int)velocity)
-                                .setOccupancy(occupancy.name())
-                                .setDataSource(datasource)
-                                .setMonitoredCall(monitoredCall)
-                                .build();
-
-        ProgressBetweenStopsRecord progress = ProgressBetweenStopsRecord.newBuilder()
-                .setPercentage(progressPercentage)
-                .setLinkDistance(distance)
-                .build();
-
-        VehicleActivityRecord activity = VehicleActivityRecord.newBuilder()
-                .setProgressBetweenStops(progress)
-                .setMonitoredVehicleJourney(mvj)
-                .setRecordedAtTime(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .setValidUntilTime(ZonedDateTime.now().plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-                .build();
-
-        VehicleMonitoringDeliveryRecord vmDelivery = VehicleMonitoringDeliveryRecord.newBuilder()
-                .setVehicleActivities(List.of(activity))
-                .build();
-
-        ServiceDeliveryRecord serviceDelivery = ServiceDeliveryRecord.newBuilder()
-                .setVehicleMonitoringDeliveries(List.of(vmDelivery))
-                .build();
-
-        return SiriRecord.newBuilder()
-                .setServiceDelivery(serviceDelivery)
-                .build();
+        return createSiriRecord(vmXml);
     }
 }
