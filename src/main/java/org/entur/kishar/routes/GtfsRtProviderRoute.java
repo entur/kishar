@@ -38,6 +38,9 @@ public class GtfsRtProviderRoute extends RestRouteBuilder {
                 .get("trip-updates").to("direct:getTripUpdates").produces("application/octet-stream").id("kishar.trip-updates")
                 .get("vehicle-positions").to("direct:getVehiclePositions").produces("application/octet-stream").id("kishar.vehicle-positions")
                 .get("alerts").to("direct:getAlerts").produces("application/octet-stream").id("kishar.alerts")
+        ;
+
+        rest("/internal/")
                 .get("debug/status").to("direct:getStatus").produces("application/text").id("kishar.status")
                 .get("debug/reset").to("direct:reset").produces("application/text").id("kishar.status")
         ;
