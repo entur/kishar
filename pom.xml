@@ -36,7 +36,7 @@
         <spring-boot-plugin.version>3.4.3</spring-boot-plugin.version>
         <spring-boot.version>3.4.3</spring-boot.version>
 
-        <camel.version>4.10.0</camel.version>
+        <camel.version>4.10.1</camel.version>
     </properties>
 
     <dependencyManagement>
