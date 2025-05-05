@@ -21,7 +21,7 @@
     <parent>
         <groupId>org.entur.ror</groupId>
         <artifactId>superpom</artifactId>
-        <version>2.8</version>
+        <version>4.4</version>
     </parent>
 
 
@@ -37,6 +37,7 @@
         <spring-boot.version>3.4.5</spring-boot.version>
 
         <camel.version>4.11.0</camel.version>
+        <protobuf.version>4.30.2</protobuf.version>
     </properties>
 
     <dependencyManagement>
@@ -73,7 +74,7 @@
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -92,12 +93,12 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.25.5</version>
+            <version>${protobuf.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
-            <version>3.25.5</version>
+            <version>${protobuf.version}</version>
         </dependency>
         <dependency>
             <groupId>org.entur</groupId>
@@ -148,12 +149,6 @@
             <version>7.4</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.transit</groupId>
-            <artifactId>gtfs-realtime-bindings</artifactId>
-            <version>0.0.4</version>
-        </dependency>
-
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -202,7 +197,37 @@
     </dependencies>
 
     <build>
+
+        <extensions>
+            <!-- makes build variables like os.detected.classifier available.
+                 use to select the correct protoc instance for the OS.
+                 see protobuf-maven-plugin below -->
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.1</version>
+            </extension>
+        </extensions>
         <plugins>
+            <!-- compile the gtfs-realtime.proto file to Java code
+               To update the proto file run the following command:
+                 curl https://raw.githubusercontent.com/google/transit/master/gtfs-realtime/proto/gtfs-realtime.proto -o src/main/proto/gtfs-realtime.proto
+              -->
+            <plugin>
+                <groupId>org.xolstice.maven.plugins</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>0.6.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
