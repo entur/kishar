@@ -214,19 +214,21 @@
                  curl https://raw.githubusercontent.com/google/transit/master/gtfs-realtime/proto/gtfs-realtime.proto -o src/main/proto/gtfs-realtime.proto
               -->
             <plugin>
-                <groupId>org.xolstice.maven.plugins</groupId>
+                <groupId>io.github.ascopes</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
-                <version>0.6.1</version>
+
+                <configuration>
+                    <protocVersion>${protobuf.version}</protocVersion>
+                    <sourceDirectories>src/main/proto</sourceDirectories>
+                </configuration>
+
                 <executions>
                     <execution>
                         <goals>
-                            <goal>compile</goal>
+                            <goal>generate</goal>
                         </goals>
                     </execution>
                 </executions>
-                <configuration>
-                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
