@@ -11,16 +11,14 @@ import org.entur.avro.realtime.siri.model.OccupancyEnum;
 import org.entur.avro.realtime.siri.model.ProgressBetweenStopsRecord;
 import org.entur.avro.realtime.siri.model.RecordedCallRecord;
 import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
-import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
 import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
+import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -43,7 +41,9 @@ public class GtfsRtMapper extends AvroHelper {
         GtfsRealtime.TripUpdate.Builder tripUpdate = GtfsRealtime.TripUpdate.newBuilder();
 
         GtfsRealtime.TripDescriptor td = getEstimatedVehicleJourneyAsTripDescriptor(vehicleJourney);
-        tripUpdate.setTrip(td);
+        if (td.getTripId() != null) {
+            tripUpdate.setTrip(td);
+        }
 
         GtfsRealtime.VehicleDescriptor vd = getEstimatedVehicleJourneyAsVehicleDescriptor(vehicleJourney);
         if (vd != null) {
@@ -245,7 +245,7 @@ public class GtfsRtMapper extends AvroHelper {
 
         ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(vehicleJourneyRef.toString());
 
-        if (serviceJourney != null) {
+        if (serviceJourney != null && serviceJourney.getId() != null) {
             td.setTripId(serviceJourney.getId());
 
             if (lineRef != null) {
@@ -275,8 +275,10 @@ public class GtfsRtMapper extends AvroHelper {
             td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
         } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
             ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(estimatedVehicleJourney.getDatedVehicleJourneyRef().toString());
-            td.setTripId(serviceJourney.getId());
-            td.setStartDate(serviceJourney.getDate());
+            if (serviceJourney != null && serviceJourney.getId() != null) {
+                td.setTripId(serviceJourney.getId());
+                td.setStartDate(serviceJourney.getDate());
+            }
         }
         if (estimatedVehicleJourney.getLineRef() != null) {
             td.setRouteId(estimatedVehicleJourney.getLineRef().toString());
