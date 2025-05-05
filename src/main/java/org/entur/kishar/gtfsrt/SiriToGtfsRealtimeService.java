@@ -212,12 +212,6 @@ public class SiriToGtfsRealtimeService {
 
     private void checkPreconditions(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
-        if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
-            checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
-        } else {
-            Preconditions.checkNotNull(estimatedVehicleJourney.getDatedVehicleJourneyRef());
-        }
-
         String datasource = estimatedVehicleJourney.getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
@@ -230,6 +224,15 @@ public class SiriToGtfsRealtimeService {
 
         if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
             Preconditions.checkState(datasourceETWhitelist.contains(datasource), "datasource " + datasource + " must be in the whitelist");
+        }
+
+        if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
+            checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
+        } else if (Boolean.TRUE.equals(estimatedVehicleJourney.getExtraJourney())) {
+            LOG.info("Ignoring - ExtraJourney not supported");
+            throw new IllegalArgumentException("ExtraJourney not supported");
+        } else {
+            Preconditions.checkNotNull(estimatedVehicleJourney.getDatedVehicleJourneyRef());
         }
 
         Preconditions.checkNotNull(estimatedVehicleJourney.getEstimatedCalls(), "EstimatedCalls");
@@ -543,6 +546,9 @@ public class SiriToGtfsRealtimeService {
             try {
                 checkPreconditions(estimatedVehicleJourney);
                 TripUpdate.Builder builder = gtfsMapper.mapTripUpdateFromVehicleJourney(estimatedVehicleJourney);
+                if (builder == null) {
+                    return result;
+                }
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
                 String key = getTripIdForEstimatedVehicleJourney(builder);
