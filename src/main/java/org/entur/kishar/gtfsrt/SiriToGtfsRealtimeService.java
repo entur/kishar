@@ -60,28 +60,22 @@ import static org.entur.kishar.gtfsrt.mappers.AvroHelper.getInstant;
 @Service
 @Configuration
 public class SiriToGtfsRealtimeService {
-    private static Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
-
-    public static final String MONITORING_ERROR_NO_CURRENT_INFORMATION = "NO_CURRENT_INFORMATION";
-
-    public static final String MONITORING_ERROR_NOMINALLY_LOCATED = "NOMINALLY_LOCATED";
+    private static final Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
     private static final String MEDIA_TYPE_APPLICATION_JSON = "application/json";
 
-    private AlertFactory alertFactory;
+    private final AlertFactory alertFactory;
 
-    private boolean newData = false;
+    private final List<String> datasourceETWhitelist;
 
-    private List<String> datasourceETWhitelist;
+    private final List<String> datasourceVMWhitelist;
 
-    private List<String> datasourceVMWhitelist;
-
-    private List<String> datasourceSXWhitelist;
+    private final List<String> datasourceSXWhitelist;
 
     @Autowired
     private PrometheusMetricsService prometheusMetricsService;
 
-    private RedisService redisService;
+    private final RedisService redisService;
 
     /**
      * Time, in seconds, after which a vehicle update is considered stale
@@ -94,7 +88,7 @@ public class SiriToGtfsRealtimeService {
     private FeedMessage alerts = createFeedMessageBuilder().build();
     private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
-    private GtfsRtMapper gtfsMapper;
+    private final GtfsRtMapper gtfsMapper;
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Autowired RedisService redisService,
@@ -112,11 +106,13 @@ public class SiriToGtfsRealtimeService {
         this.gtfsMapper = new GtfsRtMapper(closeToNextStopPercentage, closeToNextStopDistance, serviceJourneyService);
     }
 
+    @SuppressWarnings("unused")
     public void reset() {
         LOG.warn("Resetting ALL data");
         redisService.resetAllData();
     }
 
+    @SuppressWarnings("unused")
     public String getStatus() {
         ArrayList<String> status = new ArrayList<>();
         status.add("tripUpdates: " + tripUpdates.getEntityList().size());
@@ -179,22 +175,15 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void checkPreconditions(VehicleActivityRecord vehicleActivity) {
-        checkPreconditions(vehicleActivity, true);
-    }
-
-    private void checkPreconditions(VehicleActivityRecord vehicleActivity, boolean countMetric) {
 
         Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
         String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
 
-        if (countMetric && prometheusMetricsService != null) {
-            if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource)) {
-                prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, true);
-            } else {
-                prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, false);
-            }
+        if (prometheusMetricsService != null) {
+            boolean notInWhitelist = datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource);
+            prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, notInWhitelist);
         }
 
         if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
@@ -215,11 +204,8 @@ public class SiriToGtfsRealtimeService {
         String datasource = estimatedVehicleJourney.getDataSource().toString();
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
-            if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource)) {
-                prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, true);
-            } else {
-                prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, false);
-            }
+            boolean notInWhitelist = datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource);
+            prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, notInWhitelist);
         }
 
         if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
@@ -246,11 +232,8 @@ public class SiriToGtfsRealtimeService {
         String datasource = situation.getParticipantRef().toString();
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
-            if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty() && !datasourceSXWhitelist.contains(datasource)) {
-                prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, true);
-            } else {
-                prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, false);
-            }
+            boolean notInWhitelist = datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty() && !datasourceSXWhitelist.contains(datasource);
+            prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, notInWhitelist);
         }
 
         if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {
@@ -277,7 +260,6 @@ public class SiriToGtfsRealtimeService {
     }
 
     public void writeOutput() {
-        newData = false;
         long t1 = System.currentTimeMillis();
         writeTripUpdates();
         writeVehiclePositions();
@@ -302,10 +284,13 @@ public class SiriToGtfsRealtimeService {
         for (String keyBytes : tripUpdateMap.keySet()) {
             CompositeKey key = CompositeKey.create(keyBytes);
 
-            FeedEntity entity = null;
+            if (key == null) {
+                continue;
+            }
+
+            FeedEntity entity;
             try {
                 byte[] data = tripUpdateMap.get(keyBytes);
-//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
                 LOG.error("invalid feed entity from reddis with key: " + key, e);
@@ -356,10 +341,14 @@ public class SiriToGtfsRealtimeService {
 
         for (String keyBytes : vehiclePositionMap.keySet()) {
             CompositeKey key = CompositeKey.create(keyBytes);
-            FeedEntity entity = null;
+
+            if (key == null) {
+                continue;
+            }
+
+            FeedEntity entity;
             try {
                 byte[] data = vehiclePositionMap.get(keyBytes);
-//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
                 LOG.error("invalid feed entity from redis with key: " + key, e);
@@ -399,10 +388,13 @@ public class SiriToGtfsRealtimeService {
         for (String keyBytes : alertMap.keySet()) {
             CompositeKey key = CompositeKey.create(keyBytes);
 
-            FeedEntity entity = null;
+            if (key == null) {
+                continue;
+            }
+
+            FeedEntity entity;
             try {
                 byte[] data = alertMap.get(keyBytes);
-//                data = Arrays.copyOfRange(data, 16, data.length);
                 entity = FeedEntity.parseFrom(data);
             } catch (InvalidProtocolBufferException e) {
                 LOG.error("invalid feed entity from reddis with key: " + key, e);
@@ -423,6 +415,7 @@ public class SiriToGtfsRealtimeService {
         setAlerts(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
     }
 
+    @SuppressWarnings("unused")
     public FeedMessage getTripUpdates() {
         return tripUpdates;
     }
@@ -432,6 +425,7 @@ public class SiriToGtfsRealtimeService {
         this.tripUpdatesByDatasource = tripUpdatesByDatasource;
     }
 
+    @SuppressWarnings("unused")
     public FeedMessage getVehiclePositions() {
         return vehiclePositions;
     }
@@ -441,6 +435,7 @@ public class SiriToGtfsRealtimeService {
         this.vehiclePositionsByDatasource = vehiclePositionsByDatasource;
     }
 
+    @SuppressWarnings("unused")
     public FeedMessage getAlerts() {
         return alerts;
     }
@@ -631,13 +626,9 @@ public class SiriToGtfsRealtimeService {
                         continue;
                     }
                     Instant rangeEndTimestamp = getInstant(range.getEndTime());
-                    if (rangeEndTimestamp == null) {
-                        endTime = null;
-                        break;
-                    }
                     endTime = SiriLibrary.getLatestTimestamp(endTime, rangeEndTimestamp);
                 }
-                Duration timeToLive = null;
+                Duration timeToLive;
                 if (endTime != null) {
                     timeToLive = Duration.newBuilder().setSeconds(
                             endTime.getEpochSecond() - Instant.now().getEpochSecond()

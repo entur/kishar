@@ -52,7 +52,6 @@ public class AlertFactory extends AvroHelper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AlertFactory.class);
     private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyyMMdd");
-    private static final SimpleDateFormat TIME_FORMATTER = new SimpleDateFormat("HH:mm:ss");
 
     @Autowired
     ServiceJourneyService serviceJourneyService;
@@ -112,15 +111,6 @@ public class AlertFactory extends AvroHelper {
         }
     }
 
-//    private void handleReasons(PtSituationElementRecord ptSituation,
-//                              Alert.Builder serviceAlert) {
-//
-//        Cause cause = getReasonAsCause(ptSituation);
-//        if (cause != null) {
-//            serviceAlert.setCause(cause);
-//        }
-//    }
-
     /****
      * Affects
      ****/
@@ -134,34 +124,16 @@ public class AlertFactory extends AvroHelper {
             return;
         }
 
-
-//        if (affectsRecord.gethasOperators()) {
-//            AffectsScopeRecord.OperatorsType operators = affectsRecord.getOperators();
-//            if (operators != null && operators.getAffectedOperatorCount() > 0) {
-//
-//                for (AffectedOperatorRecord operator : operators.getAffectedOperatorList()) {
-//                    OperatorRefRecord operatorRef = operator.getOperatorRef();
-//                    if (operatorRef == null || operatorRef.getValue() == null) {
-//                        continue;
-//                    }
-//                    String agencyId = (operatorRef.getValue());
-//                    EntitySelector.Builder selector = EntitySelector.newBuilder();
-//                    selector.setAgencyId(agencyId);
-//                    serviceAlert.addInformedEntity(selector);
-//                }
-//            }
-//        }
-
         if (affectsRecord.getStopPoints() != null && !affectsRecord.getStopPoints().isEmpty()) {
             List<AffectedStopPointRecord> stopPoints = affectsRecord.getStopPoints();
 
             if (stopPoints != null) {
 
                 for (AffectedStopPointRecord stopPoint : stopPoints) {
-                    String stopRef =  stopPoint.getStopPointRef().toString();
-                    if (stopRef == null) {
+                    if (stopPoint.getStopPointRef() == null) {
                         continue;
                     }
+                    String stopRef =  stopPoint.getStopPointRef().toString();
                     serviceAlert.addInformedEntity(
                             EntitySelector.newBuilder()
                                     .setStopId(stopRef)
@@ -217,7 +189,7 @@ public class AlertFactory extends AvroHelper {
 
                         TripDescriptor.Builder tripDescriptor = TripDescriptor.newBuilder();
                         tripDescriptor.setTripId(datedVehicleJourneyRef);
-                        if (dataFrameRef != null) {
+                        if (!dataFrameRef.isBlank()) {
                             // Convert YYYY-MM-MM to YYYYMMDD
                             String dataFrameStr = dataFrameRef.replaceAll("-","");
                             tripDescriptor.setStartDate(dataFrameStr);
@@ -229,7 +201,7 @@ public class AlertFactory extends AvroHelper {
                         for (CharSequence datedVehicleJourneyRef : affectedVehicleJourney.getDatedVehicleJourneyRefs()) {
                             if (datedVehicleJourneyRef != null) {
                                 String datedVehicleJourneyRefStr = datedVehicleJourneyRef.toString();
-                                ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(datedVehicleJourneyRefStr);
+                                ServiceJourney serviceJourney = serviceJourneyService.getServiceJourneyFromDatedServiceJourney(datedVehicleJourneyRefStr);
                                 if (serviceJourney != null && serviceJourney.getId() != null) {
                                     TripDescriptor.Builder builder = TripDescriptor.newBuilder()
                                                                             .setTripId(serviceJourney.getId());
@@ -294,7 +266,7 @@ public class AlertFactory extends AvroHelper {
                 if (affectedNetwork.getAffectedLines() != null) {
                     for (AffectedLineRecord affectedLine : affectedNetwork.getAffectedLines()) {
 
-                        CharSequence lineRef = null;
+                        CharSequence lineRef = "";
                         if (affectedLine.getLineRef() != null) {
                             lineRef = affectedLine.getLineRef();
                         }
@@ -346,35 +318,17 @@ public class AlertFactory extends AvroHelper {
             }
         }
     }
-//
-//    private void handleConsequences(PtSituationElementRecord ptSituation,
-//                                    Alert.Builder serviceAlert) {
-//
-//        List<ConsequenceRecord> consequences = ptSituation.getConsequences();
-//
-//        if (consequences == null || consequences.isEmpty()) {
-//            return;
-//        }
-//
-//        for (ConsequenceRecord consequence : consequences) {
-//            if (consequence.getConditionCount() > 0) {
-//                serviceAlert.setEffect(getConditionAsEffect(consequence.getConditionList()));
-//            }
-//        }
-//    }
 
     private void handleUrls(PtSituationElementRecord ptSituation, Alert.Builder alert) {
         List<InfoLinkRecord> infoLinks = ptSituation.getInfoLinks();
         if (infoLinks != null) {
-            if (infoLinks != null) {
-                TranslatedString.Builder url = TranslatedString.newBuilder();
-                for (InfoLinkRecord infoLinkRecord : infoLinks) {
-                    TranslatedString.Translation.Builder translation = TranslatedString.Translation.newBuilder();
-                    translation.setText(infoLinkRecord.getUri().toString());
-                    url.addTranslation(translation);
-                }
-                alert.setUrl(url);
+            TranslatedString.Builder url = TranslatedString.newBuilder();
+            for (InfoLinkRecord infoLinkRecord : infoLinks) {
+                TranslatedString.Translation.Builder translation = TranslatedString.Translation.newBuilder();
+                translation.setText(infoLinkRecord.getUri().toString());
+                url.addTranslation(translation);
             }
+            alert.setUrl(url);
         }
     }
 }

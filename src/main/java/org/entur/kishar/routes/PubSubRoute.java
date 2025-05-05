@@ -6,22 +6,16 @@ import org.entur.avro.realtime.siri.helper.JsonReader;
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @Configuration
 public class PubSubRoute extends RouteBuilder {
-    private static Logger LOG = LoggerFactory.getLogger(PubSubRoute.class);
-
-    private static final String clientId = UUID.randomUUID().toString();
 
     @Value("${kishar.pubsub.enabled:false}")
     private boolean pubsubEnabled;

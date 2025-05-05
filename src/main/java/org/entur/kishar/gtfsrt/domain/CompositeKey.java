@@ -2,17 +2,22 @@ package org.entur.kishar.gtfsrt.domain;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
 
+@SuppressWarnings("unused")
 public class CompositeKey implements Serializable {
+
+    private static final Logger LOG = LoggerFactory.getLogger(CompositeKey.class);
 
     private String id;
 
     private String datasource;
 
-    private static ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public CompositeKey(String id, String datasource) {
         this.id = id;
@@ -42,7 +47,7 @@ public class CompositeKey implements Serializable {
             return objectMapper.writeValueAsString(this);
         }
         catch (JsonProcessingException e) {
-            e.printStackTrace();
+            LOG.warn("Failed to serialize CompositeKey", e);
         }
         return null;
     }

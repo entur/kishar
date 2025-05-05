@@ -28,7 +28,7 @@ public class RedisService {
         TRIP_UPDATE("tripUpdateMap"),
         ALERT("alertMap");
 
-        private String mapIdentifier;
+        private final String mapIdentifier;
 
         Type(String mapIdentifier) {
             this.mapIdentifier = mapIdentifier;
@@ -39,7 +39,7 @@ public class RedisService {
         }
     }
 
-    private static Logger LOG = LoggerFactory.getLogger(RedisService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RedisService.class);
     private final boolean redisEnabled;
 
     private static Map<String, Map<String, byte[]>> hashMapRedisMock;

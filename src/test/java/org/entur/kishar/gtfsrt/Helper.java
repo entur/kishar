@@ -1,15 +1,7 @@
 package org.entur.kishar.gtfsrt;
 
 import org.entur.avro.realtime.siri.converter.jaxb2avro.Jaxb2AvroConverter;
-import org.entur.avro.realtime.siri.helper.JsonReader;
-import org.entur.avro.realtime.siri.helper.JsonWriter;
-import org.entur.avro.realtime.siri.model.AffectedLineRecord;
-import org.entur.avro.realtime.siri.model.AffectedNetworkRecord;
-import org.entur.avro.realtime.siri.model.AffectsRecord;
-import org.entur.avro.realtime.siri.model.FramedVehicleJourneyRefRecord;
-import org.entur.avro.realtime.siri.model.InfoLinkRecord;
 import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
-import org.entur.avro.realtime.siri.model.TranslatedStringRecord;
 import uk.org.siri.siri21.AffectedLineStructure;
 import uk.org.siri.siri21.AffectsScopeStructure;
 import uk.org.siri.siri21.DefaultedTextStructure;
@@ -18,10 +10,6 @@ import uk.org.siri.siri21.PtSituationElement;
 import uk.org.siri.siri21.ReportTypeEnumeration;
 import uk.org.siri.siri21.RequestorRef;
 import uk.org.siri.siri21.SituationNumber;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Helper {
 
@@ -66,16 +54,4 @@ public class Helper {
 
         return Jaxb2AvroConverter.convert(siriSituation);
     }
-
-    static FramedVehicleJourneyRefRecord createFramedVehicleJourneyRefStructure(String datedVehicleJourneyRef) {
-        if (datedVehicleJourneyRef == null) {
-            return null;
-        }
-
-        return FramedVehicleJourneyRefRecord.newBuilder()
-                .setDatedVehicleJourneyRef(datedVehicleJourneyRef)
-                .setDataFrameRef("2018-12-12")
-                .build();
-    }
-
 }

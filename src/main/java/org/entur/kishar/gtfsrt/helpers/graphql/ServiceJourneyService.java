@@ -4,21 +4,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
-import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClientException;
 
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class ServiceJourneyService {
@@ -28,30 +21,9 @@ public class ServiceJourneyService {
     @Autowired
     private JourneyPlannerGraphQLClient graphQLClient;
 
-    @Autowired
-    private PrometheusMetricsService metricsService;
+    public ServiceJourneyService() { }
 
-    @Value("${vehicle.serviceJourney.concurrent.requests:2}")
-    private int concurrentRequests;
-
-    @Value("${vehicle.serviceJourney.concurrent.sleeptime:50}")
-    private int sleepTime;
-
-    private ExecutorService asyncExecutorService;
-
-    private boolean initialized = false;
-
-    private AtomicInteger concurrentDatedServiceJourneyRequestCounter = new AtomicInteger();
-
-    public ServiceJourneyService() {
-
-        if (concurrentRequests < 1) {
-            concurrentRequests = 1;
-        }
-        asyncExecutorService = Executors.newFixedThreadPool(concurrentRequests);
-
-    }
-    private LoadingCache<String, ServiceJourney> datedServiceJourneyCache = CacheBuilder.newBuilder()
+    private final LoadingCache<String, ServiceJourney> datedServiceJourneyCache = CacheBuilder.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
             .build(new CacheLoader<>() {
                 @Override
@@ -60,9 +32,7 @@ public class ServiceJourneyService {
                 }
             });
 
-    private AtomicInteger initCounter = new AtomicInteger();
-
-    public ServiceJourney getServiceJourney(String datedServiceJourneyId) {
+    public ServiceJourney getServiceJourneyFromDatedServiceJourney(String datedServiceJourneyId) {
         try {
         return datedServiceJourneyCache.get(datedServiceJourneyId);
         } catch (ExecutionException e) {
@@ -92,6 +62,7 @@ public class ServiceJourneyService {
 
             } catch (WebClientException e) {
                 // Ignore - return empty ServiceJourney
+                LOG.info("Failed to fetch DatedServiceJourney from GraphQL", e);
             }
         } else {
             //Dummy fallback

@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 @Configuration
 public class GtfsRtProviderRoute extends RestRouteBuilder {
 
-    private SiriToGtfsRealtimeService siriToGtfsRealtimeService;
+    private final SiriToGtfsRealtimeService siriToGtfsRealtimeService;
 
     public GtfsRtProviderRoute(@Autowired SiriToGtfsRealtimeService siriToGtfsRealtimeService) {
         this.siriToGtfsRealtimeService = siriToGtfsRealtimeService;

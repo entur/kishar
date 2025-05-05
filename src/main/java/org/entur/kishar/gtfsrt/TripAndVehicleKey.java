@@ -16,6 +16,7 @@
 package org.entur.kishar.gtfsrt;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 public class TripAndVehicleKey implements Serializable {
 
@@ -60,30 +61,13 @@ public class TripAndVehicleKey implements Serializable {
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    TripAndVehicleKey other = (TripAndVehicleKey) obj;
-    if (serviceDate == null) {
-      if (other.serviceDate != null)
-        return false;
-    } else if (!serviceDate.equals(other.serviceDate))
-      return false;
-    if (tripId == null) {
-      if (other.tripId != null)
-        return false;
-    } else if (!tripId.equals(other.tripId))
-      return false;
-    if (vehicleId == null) {
-      if (other.vehicleId != null)
-        return false;
-    } else if (!vehicleId.equals(other.vehicleId))
-      return false;
-    return true;
+  public boolean equals(Object o) {
+    if (o == null || getClass() != o.getClass()) return false;
+
+    TripAndVehicleKey that = (TripAndVehicleKey) o;
+    return Objects.equals(tripId, that.tripId) &&
+            Objects.equals(serviceDate, that.serviceDate) &&
+            Objects.equals(vehicleId, that.vehicleId);
   }
 
   @Override

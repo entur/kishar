@@ -17,7 +17,7 @@ public class AvroHelper {
             for (TranslatedStringRecord text : textStructures) {
 
                 String value = text.getValue().toString();
-                if (value == null || value.isBlank()) {
+                if (value.isBlank()) {
                     continue;
                 }
 

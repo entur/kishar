@@ -14,22 +14,20 @@ import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
 import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
 
-import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 
 public class GtfsRtMapper extends AvroHelper {
 
     private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
-    private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:MM:ss");
+    private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:mm:ss");
     private final ServiceJourneyService serviceJourneyService;
 
-    private int closeToNextStopPercentage;
-    private int closeToNextStopDistance;
+    private final int closeToNextStopPercentage;
+    private final int closeToNextStopDistance;
 
     public GtfsRtMapper(int closeToNextStopPercentage, int closeToNextStopDistance, ServiceJourneyService serviceJourneyService) {
         this.closeToNextStopPercentage = closeToNextStopPercentage;
@@ -83,10 +81,10 @@ public class GtfsRtMapper extends AvroHelper {
             }
 
             if (activity.getRecordedAtTime() != null) {
-                Instant time = getInstant(activity.getRecordedAtTime());
-                if (time != null) {
-                    vp.setTimestamp(time.getEpochSecond());
-                }
+                vp.setTimestamp(
+                        getInstant(activity.getRecordedAtTime())
+                                .getEpochSecond()
+                );
             }
 
             GtfsRealtime.Position.Builder position = GtfsRealtime.Position.newBuilder();
@@ -94,7 +92,7 @@ public class GtfsRtMapper extends AvroHelper {
             position.setLongitude(location.getLongitude().floatValue());
 
             if (mvj.getBearing() != null) {
-                position.setBearing(mvj.getBearing().floatValue());
+                position.setBearing(mvj.getBearing());
             }
 
             if (mvj.getVelocity() != null) {
@@ -105,24 +103,22 @@ public class GtfsRtMapper extends AvroHelper {
 
             //Distance traveled since last stop
             boolean isCloseToNextStop = false;
-            if (activity.getProgressBetweenStops() != null &&
-                    activity.getProgressBetweenStops().getPercentage() != null &&
-                    activity.getProgressBetweenStops().getLinkDistance() != null) {
-                final ProgressBetweenStopsRecord progressBetweenStops = activity.getProgressBetweenStops();
+            ProgressBetweenStopsRecord progressBetweenStops = activity.getProgressBetweenStops();
 
-                isCloseToNextStop = progressBetweenStops.getPercentage() > closeToNextStopPercentage;
+            if (progressBetweenStops != null
+                    && progressBetweenStops.getPercentage() != null
+                    && progressBetweenStops.getLinkDistance() != null) {
 
-                final BigDecimal linkDistance = BigDecimal.valueOf(progressBetweenStops.getLinkDistance());
+                double linkDistance = progressBetweenStops.getLinkDistance();
+                if (linkDistance > 0) {
+                    double distanceTravelled = linkDistance * (progressBetweenStops.getPercentage() / 100);
+                    position.setOdometer(distanceTravelled);
 
-                if (linkDistance != null) {
-                    final BigDecimal distanceTravelled = linkDistance.multiply(BigDecimal.valueOf(progressBetweenStops.getPercentage()).divide(BigDecimal.valueOf(100)));
-                    position.setOdometer(distanceTravelled.doubleValue());
-
-                    if (linkDistance.doubleValue() - distanceTravelled.doubleValue() < closeToNextStopDistance) {
-                        isCloseToNextStop = true;
-                    }
+                    isCloseToNextStop = progressBetweenStops.getPercentage() > closeToNextStopPercentage
+                            || (linkDistance - distanceTravelled < closeToNextStopDistance);
+                } else {
+                    isCloseToNextStop =  progressBetweenStops.getPercentage() > closeToNextStopPercentage;
                 }
-
             }
 
 
@@ -178,30 +174,23 @@ public class GtfsRtMapper extends AvroHelper {
 
     private static GtfsRealtime.VehiclePosition.OccupancyStatus convertOccupancy(String occupancy) {
         OccupancyEnum occupancyEnum = OccupancyEnum.valueOf(occupancy);
-        switch (occupancyEnum) {
-            case EMPTY:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.EMPTY;
-            case FULL:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.FULL;
-            case STANDING_ROOM_ONLY:
-            case STANDING_AVAILABLE:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY;
-            case CRUSHED_STANDING_ROOM_ONLY:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.CRUSHED_STANDING_ROOM_ONLY;
-            case SEATS_AVAILABLE:
-            case FEW_SEATS_AVAILABLE:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE;
-            case NOT_ACCEPTING_PASSENGERS:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.NOT_ACCEPTING_PASSENGERS;
-            case MANY_SEATS_AVAILABLE:
-                return GtfsRealtime.VehiclePosition.OccupancyStatus.MANY_SEATS_AVAILABLE;
-        }
-        return null;
+        return switch (occupancyEnum) {
+            case EMPTY -> GtfsRealtime.VehiclePosition.OccupancyStatus.EMPTY;
+            case FULL -> GtfsRealtime.VehiclePosition.OccupancyStatus.FULL;
+            case STANDING_ROOM_ONLY, STANDING_AVAILABLE ->
+                    GtfsRealtime.VehiclePosition.OccupancyStatus.STANDING_ROOM_ONLY;
+            case CRUSHED_STANDING_ROOM_ONLY -> GtfsRealtime.VehiclePosition.OccupancyStatus.CRUSHED_STANDING_ROOM_ONLY;
+            case SEATS_AVAILABLE, FEW_SEATS_AVAILABLE ->
+                    GtfsRealtime.VehiclePosition.OccupancyStatus.FEW_SEATS_AVAILABLE;
+            case NOT_ACCEPTING_PASSENGERS -> GtfsRealtime.VehiclePosition.OccupancyStatus.NOT_ACCEPTING_PASSENGERS;
+            case MANY_SEATS_AVAILABLE -> GtfsRealtime.VehiclePosition.OccupancyStatus.MANY_SEATS_AVAILABLE;
+            default -> null;
+        };
     }
 
     private GtfsRealtime.VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(MonitoredVehicleJourneyRecord mvj) {
         String vehicleRef = mvj.getVehicleRef().toString();
-        if (vehicleRef == null || vehicleRef.isBlank()) {
+        if (vehicleRef.isBlank()) {
             return null;
         }
 
@@ -243,7 +232,7 @@ public class GtfsRtMapper extends AvroHelper {
 
         GtfsRealtime.TripDescriptor.Builder td = GtfsRealtime.TripDescriptor.newBuilder();
 
-        ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(vehicleJourneyRef.toString());
+        ServiceJourney serviceJourney = serviceJourneyService.getServiceJourneyFromDatedServiceJourney(vehicleJourneyRef.toString());
 
         if (serviceJourney != null && serviceJourney.getId() != null) {
             td.setTripId(serviceJourney.getId());
@@ -274,7 +263,7 @@ public class GtfsRtMapper extends AvroHelper {
             FramedVehicleJourneyRefRecord fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
             td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
         } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
-            ServiceJourney serviceJourney = serviceJourneyService.getServiceJourney(estimatedVehicleJourney.getDatedVehicleJourneyRef().toString());
+            ServiceJourney serviceJourney = serviceJourneyService.getServiceJourneyFromDatedServiceJourney(estimatedVehicleJourney.getDatedVehicleJourneyRef().toString());
             if (serviceJourney != null && serviceJourney.getId() != null) {
                 td.setTripId(serviceJourney.getId());
                 td.setStartDate(serviceJourney.getDate());
@@ -308,10 +297,10 @@ public class GtfsRtMapper extends AvroHelper {
         int stopCounter = 0;
         if (recordedCalls != null) {
             for (RecordedCallRecord recordedCall : recordedCalls) {
-                String stopPointRef = recordedCall.getStopPointRef().toString();
-                if (stopPointRef == null) {
+                if (recordedCall.getStopPointRef() == null) {
                     return;
                 }
+                String stopPointRef = recordedCall.getStopPointRef().toString();
                 Integer arrivalDelayInSeconds = null;
                 Integer departureDelayInSeconds = null;
 
@@ -355,10 +344,10 @@ public class GtfsRtMapper extends AvroHelper {
         }
         if (estimatedCalls != null) {
             for (EstimatedCallRecord estimatedCall : estimatedCalls) {
-                String  stopPointRef = estimatedCall.getStopPointRef().toString();
-                if (stopPointRef == null) {
+                if (estimatedCall.getStopPointRef() == null) {
                     return;
                 }
+                String  stopPointRef = estimatedCall.getStopPointRef().toString();
 
                 Integer arrivalDelayInSeconds = null;
                 Integer departureDelayInSeconds = null;

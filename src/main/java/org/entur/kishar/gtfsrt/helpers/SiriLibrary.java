@@ -15,13 +15,8 @@
 package org.entur.kishar.gtfsrt.helpers;
 
 import java.time.Instant;
-import java.time.ZonedDateTime;
 
 public class SiriLibrary {
-
-    public static ZonedDateTime getCurrentTime() {
-       return ZonedDateTime.now();
-    }
 
     public static Instant getLatestTimestamp(Instant t1, Instant t2) {
         if (t1 == null) {
