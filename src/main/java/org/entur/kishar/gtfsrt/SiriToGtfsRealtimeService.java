@@ -183,7 +183,7 @@ public class SiriToGtfsRealtimeService {
 
         if (prometheusMetricsService != null) {
             boolean notInWhitelist = datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource);
-            prometheusMetricsService.registerIncomingEntity("SIRI_VM", 1, notInWhitelist);
+            prometheusMetricsService.registerIncomingEntity("SIRI_VM", notInWhitelist);
         }
 
         if (datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty()) {
@@ -205,7 +205,7 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
             boolean notInWhitelist = datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource);
-            prometheusMetricsService.registerIncomingEntity("SIRI_ET", 1, notInWhitelist);
+            prometheusMetricsService.registerIncomingEntity("SIRI_ET", notInWhitelist);
         }
 
         if (datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty()) {
@@ -233,7 +233,7 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(datasource, "datasource");
         if (prometheusMetricsService != null) {
             boolean notInWhitelist = datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty() && !datasourceSXWhitelist.contains(datasource);
-            prometheusMetricsService.registerIncomingEntity("SIRI_SX", 1, notInWhitelist);
+            prometheusMetricsService.registerIncomingEntity("SIRI_SX", notInWhitelist);
         }
 
         if (datasourceSXWhitelist != null && !datasourceSXWhitelist.isEmpty()) {

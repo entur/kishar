@@ -57,14 +57,14 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
         counter(DATA_INBOUND_TOTAL_COUNTER_NAME, counterTags).increment(total);
     }
 
-    public void registerIncomingEntity(String dataType, long total, Boolean filtered) {
+    public void registerIncomingEntity(String dataType, Boolean filtered) {
         List<Tag> counterTags = new ArrayList<>();
         counterTags.add(new ImmutableTag("dataType", dataType));
 
         if (filtered) {
-            counter(DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment(total);
+            counter(DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment();
         } else {
-            counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment(total);
+            counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment();
         }
     }
 
