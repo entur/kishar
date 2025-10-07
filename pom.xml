@@ -36,7 +36,7 @@
         <spring-boot-plugin.version>3.5.6</spring-boot-plugin.version>
         <spring-boot.version>3.5.6</spring-boot.version>
 
-        <camel.version>4.14.1</camel.version>
+        <camel.version>4.15.0</camel.version>
         <protobuf.version>3.25.8</protobuf.version>
     </properties>
 
