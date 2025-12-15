@@ -8,8 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientException;
 
+import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -49,7 +49,9 @@ public class ServiceJourneyService {
             String query = "{\"query\":\"{datedServiceJourney(id:\\\"" + datedServiceJourneyId + "\\\"){id operatingDay serviceJourney {id }}}\",\"variables\":null}";
 
             try {
-                Data data = graphQLClient.executeQuery(query);
+                // Block here is acceptable in cache loader (runs in background thread pool)
+                JourneyPlannerGraphQLClient.Data data = graphQLClient.executeQuery(query)
+                        .block(Duration.ofSeconds(10));
 
                 if (data != null &&
                         data.datedServiceJourney != null &&
@@ -61,7 +63,7 @@ public class ServiceJourneyService {
                     datedServiceJourneyCache.put(datedServiceJourneyId, serviceJourney);
                 }
 
-            } catch (WebClientException e) {
+            } catch (Exception e) {
                 // Ignore - return empty ServiceJourney
                 LOG.info("Failed to fetch DatedServiceJourney from GraphQL", e);
             }
