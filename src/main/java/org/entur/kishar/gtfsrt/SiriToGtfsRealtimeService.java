@@ -53,6 +53,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMessageBuilder;
 import static org.entur.kishar.gtfsrt.mappers.AvroHelper.getInstant;
@@ -61,6 +63,10 @@ import static org.entur.kishar.gtfsrt.mappers.AvroHelper.getInstant;
 @Configuration
 public class SiriToGtfsRealtimeService {
     private static final Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
+
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final Lock readLock = lock.readLock();
+    private final Lock writeLock = lock.writeLock();
 
     private static final String MEDIA_TYPE_APPLICATION_JSON = "application/json";
 
@@ -81,12 +87,12 @@ public class SiriToGtfsRealtimeService {
      * Time, in seconds, after which a vehicle update is considered stale
      */
     private static final int gracePeriod = 5 * 60;
-    private FeedMessage tripUpdates = createFeedMessageBuilder().build();
-    private Map<String, FeedMessage> tripUpdatesByDatasource = Maps.newHashMap();
-    private FeedMessage vehiclePositions = createFeedMessageBuilder().build();
-    private Map<String, FeedMessage> vehiclePositionsByDatasource = Maps.newHashMap();
-    private FeedMessage alerts = createFeedMessageBuilder().build();
-    private Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
+    private volatile FeedMessage tripUpdates = createFeedMessageBuilder().build();
+    private volatile Map<String, FeedMessage> tripUpdatesByDatasource = Maps.newHashMap();
+    private volatile FeedMessage vehiclePositions = createFeedMessageBuilder().build();
+    private volatile Map<String, FeedMessage> vehiclePositionsByDatasource = Maps.newHashMap();
+    private volatile FeedMessage alerts = createFeedMessageBuilder().build();
+    private volatile Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
     private final GtfsRtMapper gtfsMapper;
 
@@ -122,45 +128,60 @@ public class SiriToGtfsRealtimeService {
     }
 
     public Object getTripUpdates(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_ET", 1);
-        }
-        FeedMessage feedMessage = tripUpdates;
-        if (datasource != null && !datasource.isEmpty()) {
-            feedMessage = tripUpdatesByDatasource.get(datasource);
-            if (feedMessage == null) {
-                feedMessage = createFeedMessageBuilder().build();
+        readLock.lock();
+        try {
+            if (prometheusMetricsService != null) {
+                prometheusMetricsService.registerIncomingRequest("SIRI_ET", 1);
             }
+            FeedMessage feedMessage = tripUpdates;
+            if (datasource != null && !datasource.isEmpty()) {
+                feedMessage = tripUpdatesByDatasource.get(datasource);
+                if (feedMessage == null) {
+                    feedMessage = createFeedMessageBuilder().build();
+                }
+            }
+            return encodeFeedMessage(feedMessage, contentType);
+        } finally {
+            readLock.unlock();
         }
-        return encodeFeedMessage(feedMessage, contentType);
     }
 
     public Object getVehiclePositions(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_VM", 1);
-        }
-        FeedMessage feedMessage = vehiclePositions;
-        if (datasource != null && !datasource.isEmpty()) {
-            feedMessage = vehiclePositionsByDatasource.get(datasource);
-            if (feedMessage == null) {
-                feedMessage = createFeedMessageBuilder().build();
+        readLock.lock();
+        try {
+            if (prometheusMetricsService != null) {
+                prometheusMetricsService.registerIncomingRequest("SIRI_VM", 1);
             }
+            FeedMessage feedMessage = vehiclePositions;
+            if (datasource != null && !datasource.isEmpty()) {
+                feedMessage = vehiclePositionsByDatasource.get(datasource);
+                if (feedMessage == null) {
+                    feedMessage = createFeedMessageBuilder().build();
+                }
+            }
+            return encodeFeedMessage(feedMessage, contentType);
+        } finally {
+            readLock.unlock();
         }
-        return encodeFeedMessage(feedMessage, contentType);
     }
 
     public Object getAlerts(String contentType, String datasource) {
-        if (prometheusMetricsService != null) {
-            prometheusMetricsService.registerIncomingRequest("SIRI_SX", 1);
-        }
-        FeedMessage feedMessage = alerts;
-        if (datasource != null && !datasource.isEmpty()) {
-            feedMessage = alertsByDatasource.get(datasource);
-            if (feedMessage == null) {
-                feedMessage = createFeedMessageBuilder().build();
+        readLock.lock();
+        try {
+            if (prometheusMetricsService != null) {
+                prometheusMetricsService.registerIncomingRequest("SIRI_SX", 1);
             }
+            FeedMessage feedMessage = alerts;
+            if (datasource != null && !datasource.isEmpty()) {
+                feedMessage = alertsByDatasource.get(datasource);
+                if (feedMessage == null) {
+                    feedMessage = createFeedMessageBuilder().build();
+                }
+            }
+            return encodeFeedMessage(feedMessage, contentType);
+        } finally {
+            readLock.unlock();
         }
-        return encodeFeedMessage(feedMessage, contentType);
     }
 
     private Object encodeFeedMessage(FeedMessage feedMessage, String contentType) {
@@ -417,32 +438,62 @@ public class SiriToGtfsRealtimeService {
 
     @SuppressWarnings("unused")
     public FeedMessage getTripUpdates() {
-        return tripUpdates;
+        readLock.lock();
+        try {
+            return tripUpdates;
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public void setTripUpdates(FeedMessage tripUpdates, Map<String, FeedMessage> tripUpdatesByDatasource) {
-        this.tripUpdates = tripUpdates;
-        this.tripUpdatesByDatasource = tripUpdatesByDatasource;
+        writeLock.lock();
+        try {
+            this.tripUpdates = tripUpdates;
+            this.tripUpdatesByDatasource = tripUpdatesByDatasource;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     @SuppressWarnings("unused")
     public FeedMessage getVehiclePositions() {
-        return vehiclePositions;
+        readLock.lock();
+        try {
+            return vehiclePositions;
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public void setVehiclePositions(FeedMessage vehiclePositions, Map<String, FeedMessage> vehiclePositionsByDatasource) {
-        this.vehiclePositions = vehiclePositions;
-        this.vehiclePositionsByDatasource = vehiclePositionsByDatasource;
+        writeLock.lock();
+        try {
+            this.vehiclePositions = vehiclePositions;
+            this.vehiclePositionsByDatasource = vehiclePositionsByDatasource;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     @SuppressWarnings("unused")
     public FeedMessage getAlerts() {
-        return alerts;
+        readLock.lock();
+        try {
+            return alerts;
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public void setAlerts(FeedMessage alerts, Map<String, FeedMessage> alertsByDatasource) {
-        this.alerts = alerts;
-        this.alertsByDatasource = alertsByDatasource;
+        writeLock.lock();
+        try {
+            this.alerts = alerts;
+            this.alertsByDatasource = alertsByDatasource;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public Map<String, GtfsRtData> convertSiriVmToGtfsRt(VehicleActivityRecord activity) {

@@ -68,11 +68,18 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
         }
     }
 
-    public void registerTotalGtfsRtEntities(int etCount, int vmCount, int sxCount) {
+    public synchronized void registerTotalGtfsRtEntities(int etCount, int vmCount, int sxCount) {
+        // Create list copy to avoid concurrent modification
+        List<Meter> metersToRemove = new ArrayList<>();
         for (Meter meter : this.getMeters()) {
             if (GTFSRT_ENTITIES_TOTAL.equals(meter.getId().getName())) {
-                this.remove(meter);
+                metersToRemove.add(meter);
             }
+        }
+
+        // Remove after iteration
+        for (Meter meter : metersToRemove) {
+            this.remove(meter);
         }
 
         List<Tag> counterTags = new ArrayList<>();

@@ -40,18 +40,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 @Service
 public class AlertFactory extends AvroHelper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AlertFactory.class);
-    private static final SimpleDateFormat DATE_FORMATTER = new SimpleDateFormat("yyyyMMdd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     @Autowired
     ServiceJourneyService serviceJourneyService;
@@ -161,7 +162,8 @@ public class AlertFactory extends AvroHelper {
                     if (affectedVehicleJourney.getOriginAimedDepartureTime() != null) {
 
                         startDate = DATE_FORMATTER.format(
-                                new Date(getInstant(affectedVehicleJourney.getOriginAimedDepartureTime()).toEpochMilli())
+                                LocalDate.ofInstant(getInstant(affectedVehicleJourney.getOriginAimedDepartureTime()),
+                                        ZoneId.systemDefault())
                         );
                     }
 

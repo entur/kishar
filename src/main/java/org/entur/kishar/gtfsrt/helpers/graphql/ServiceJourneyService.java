@@ -24,6 +24,7 @@ public class ServiceJourneyService {
     public ServiceJourneyService() { }
 
     private final LoadingCache<String, ServiceJourney> datedServiceJourneyCache = CacheBuilder.newBuilder()
+            .maximumSize(10000)  // Limit to 10k service journeys (high traffic)
             .expireAfterAccess(1, TimeUnit.HOURS)
             .build(new CacheLoader<>() {
                 @Override

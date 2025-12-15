@@ -1,6 +1,7 @@
 package org.entur.kishar.gtfsrt;
 
-import com.google.common.collect.Maps;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.redisson.Redisson;
@@ -42,7 +43,7 @@ public class RedisService {
     private static final Logger LOG = LoggerFactory.getLogger(RedisService.class);
     private final boolean redisEnabled;
 
-    private static Map<String, Map<String, byte[]>> hashMapRedisMock;
+    private static Cache<String, Cache<String, byte[]>> hashMapRedisMock;
 
     RedissonClient redisson;
 
@@ -61,8 +62,10 @@ public class RedisService {
 
             redisson = Redisson.create(config);
         } else {
-            LOG.info("Redis not enabled - using hashMap");
-            hashMapRedisMock = Maps.newHashMap();
+            LOG.info("Redis not enabled - using bounded cache");
+            hashMapRedisMock = CacheBuilder.newBuilder()
+                    .maximumSize(3)  // 3 map types (ET, VM, SX)
+                    .build();
         }
     }
     public void resetAllData() {
@@ -80,7 +83,7 @@ public class RedisService {
             LOG.info("After - ALERT: " + redisson.getMap(Type.ALERT.mapIdentifier).size());
         }
         if (hashMapRedisMock != null) {
-            hashMapRedisMock.clear();
+            hashMapRedisMock.invalidateAll();
         }
     }
 
@@ -95,12 +98,21 @@ public class RedisService {
                 }
             }
         } else {
-            Map<String, byte[]> map = hashMapRedisMock.getOrDefault(type.getMapIdentifier(), Maps.newHashMap());
-            for (String key : gtfsRt.keySet()) {
-                GtfsRtData gtfsRtData = gtfsRt.get(key);
-                map.put(key, gtfsRtData.getData());
+            try {
+                Cache<String, byte[]> map = hashMapRedisMock.get(
+                    type.getMapIdentifier(),
+                    () -> CacheBuilder.newBuilder()
+                        .maximumSize(50000)  // Max 50k entities per type (high traffic)
+                        .expireAfterWrite(1, TimeUnit.HOURS)
+                        .build()
+                );
+                for (String key : gtfsRt.keySet()) {
+                    GtfsRtData gtfsRtData = gtfsRt.get(key);
+                    map.put(key, gtfsRtData.getData());
+                }
+            } catch (Exception e) {
+                LOG.error("Failed to write to cache", e);
             }
-            hashMapRedisMock.put(type.getMapIdentifier(), map);
         }
     }
 
@@ -120,7 +132,8 @@ public class RedisService {
 
             return result;
         } else {
-            return hashMapRedisMock.getOrDefault(type.getMapIdentifier(), new HashMap<>());
+            Cache<String, byte[]> cache = hashMapRedisMock.getIfPresent(type.getMapIdentifier());
+            return cache != null ? cache.asMap() : new HashMap<>();
         }
     }
 }
