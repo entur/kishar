@@ -37,7 +37,7 @@
         <spring-boot.version>3.5.9</spring-boot.version>
 
         <camel.version>4.16.0</camel.version>
-        <protobuf.version>4.33.2</protobuf.version>
+        <protobuf.version>4.33.3</protobuf.version>
     </properties>
 
     <dependencyManagement>
