@@ -37,7 +37,7 @@
         <spring-boot.version>3.5.10</spring-boot.version>
 
         <camel.version>4.17.0</camel.version>
-        <protobuf.version>4.33.4</protobuf.version>
+        <protobuf.version>4.33.5</protobuf.version>
         <rest-assured.version>6.0.0</rest-assured.version>
     </properties>
 
