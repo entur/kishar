@@ -1,0 +1,17 @@
+name: "CodeQL"
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "0 3 * * MON"
+
+jobs:
+  code-scan:
+    name: Code Scan
+    uses: entur/gha-security/.github/workflows/code-scan.yml@v2
+    secrets: inherit
