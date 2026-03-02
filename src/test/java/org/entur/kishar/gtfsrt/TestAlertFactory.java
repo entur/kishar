@@ -5,11 +5,11 @@ import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNotNull;
 import static org.entur.kishar.gtfsrt.Helper.createPtSituationElement;
 import static org.entur.kishar.gtfsrt.Helper.descriptionValue;
 import static org.entur.kishar.gtfsrt.Helper.summaryValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestAlertFactory {
     AlertFactory alertFactory;

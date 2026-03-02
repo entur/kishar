@@ -15,10 +15,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest{
 
@@ -181,7 +182,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         Object vehiclePositions = rtService.getVehiclePositions("application/json", "TST");
         assertNotNull(vehiclePositions);
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, vehiclePositions);
 
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
@@ -189,7 +190,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertFalse(entityList.isEmpty());
         assertEquals(1, entityList.size());
 
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, vehiclePositions);
         assertEquals(1, ((GtfsRealtime.FeedMessage) vehiclePositions).getEntityCount());
         assertTrue(entityList.contains(((GtfsRealtime.FeedMessage) vehiclePositions).getEntity(0)));
 
@@ -222,13 +223,13 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
         assertNotNull(vehiclePositions);
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, vehiclePositions);
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
 
 
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, vehiclePositions);
         assertEquals(0, ((GtfsRealtime.FeedMessage) vehiclePositions).getEntityCount());
 
         assertTrue(entityList.isEmpty());
@@ -265,7 +266,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     private GtfsRealtime.FeedMessage getFeedMessage(SiriToGtfsRealtimeService rtService) throws InvalidProtocolBufferException {
         Object vehiclePositions = rtService.getVehiclePositions("application/json", null);
         assertNotNull(vehiclePositions);
-        assertTrue(vehiclePositions instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, vehiclePositions);
 
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) vehiclePositions;

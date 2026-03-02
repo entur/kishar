@@ -10,14 +10,15 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
 import static org.entur.kishar.gtfsrt.Helper.descriptionValue;
 import static org.entur.kishar.gtfsrt.Helper.situationNumberValue;
 import static org.entur.kishar.gtfsrt.Helper.summaryValue;
 import static org.entur.kishar.gtfsrt.TestAlertFactory.assertAlert;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
@@ -32,7 +33,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         rtService.writeOutput();
         Object alerts = rtService.getAlerts("application/json", null);
         assertNotNull(alerts);
-        assertTrue(alerts instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, alerts);
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) alerts;
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
@@ -110,7 +111,7 @@ public class TestSiriSXToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         rtService.writeOutput();
         Object alerts = rtService.getAlerts("application/json", null);
         assertNotNull(alerts);
-        assertTrue(alerts instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, alerts);
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) alerts;
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
