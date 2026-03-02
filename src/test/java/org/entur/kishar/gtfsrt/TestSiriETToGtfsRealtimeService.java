@@ -12,10 +12,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTest {
 
@@ -163,7 +164,8 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         for (int i = 0; i < tripUpdate.getStopTimeUpdateCount(); i++) {
             GtfsRealtime.TripUpdate.StopTimeUpdate stopTimeUpdate = tripUpdate.getStopTimeUpdate(i);
 
-            assertEquals(i, stopTimeUpdate.getStopSequence());
+            int expectedStopSequence = i + 1; //First stop should have sequence 1
+            assertEquals(expectedStopSequence, stopTimeUpdate.getStopSequence());
 
             //Assert arrival for all but first stop
             GtfsRealtime.TripUpdate.StopTimeEvent arrival = stopTimeUpdate.getArrival();
@@ -212,7 +214,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         Object tripUpdates = rtService.getTripUpdates("application/json", "TST");
         assertNotNull(tripUpdates);
-        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, tripUpdates);
 
         GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
         List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
@@ -227,7 +229,7 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
 
         tripUpdates = rtService.getTripUpdates("application/json", "BNR");
         assertNotNull(tripUpdates);
-        assertTrue(tripUpdates instanceof GtfsRealtime.FeedMessage);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, tripUpdates);
 
         feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
         entityList = feedMessage.getEntityList();

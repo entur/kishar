@@ -294,7 +294,7 @@ public class GtfsRtMapper extends AvroHelper {
         List<EstimatedCallRecord> estimatedCalls = mvj.getEstimatedCalls();
         List<RecordedCallRecord> recordedCalls = mvj.getRecordedCalls();
 
-        int stopCounter = 0;
+        int stopCounter = 1;
         if (recordedCalls != null) {
             for (RecordedCallRecord recordedCall : recordedCalls) {
                 if (recordedCall.getStopPointRef() == null) {
@@ -330,16 +330,17 @@ public class GtfsRtMapper extends AvroHelper {
                     }
                 }
 
-                int stopSequence;
-                if (recordedCall.getOrder() > 0) {
-                    stopSequence = recordedCall.getOrder() - 1;
-                } else {
-                    stopSequence = stopCounter;
-                }
+                int stopSequence = stopCounter++;
 
-                addStopTimeUpdate(stopPointRef, arrivalDelayInSeconds, departureDelayInSeconds, stopSequence, tripUpdate);
+                addStopTimeUpdate(
+                        stopPointRef,
+                        arrivalDelayInSeconds,
+                        departureDelayInSeconds,
+                        stopSequence,
+                        tripUpdate
+                );
 
-                stopCounter++;
+
             }
         }
         if (estimatedCalls != null) {
@@ -360,16 +361,15 @@ public class GtfsRtMapper extends AvroHelper {
                     departureDelayInSeconds = calculateDelay(estimatedCall.getAimedDepartureTime(), estimatedCall.getExpectedDepartureTime());
                 }
 
-                int stopSequence;
-                if (estimatedCall.getOrder() > 0) {
-                    stopSequence = estimatedCall.getOrder() - 1;
-                } else {
-                    stopSequence = stopCounter;
-                }
+                int stopSequence = stopCounter++;
 
-                addStopTimeUpdate(stopPointRef, arrivalDelayInSeconds, departureDelayInSeconds, stopSequence, tripUpdate);
-
-                stopCounter++;
+                addStopTimeUpdate(
+                        stopPointRef,
+                        arrivalDelayInSeconds,
+                        departureDelayInSeconds,
+                        stopSequence,
+                        tripUpdate
+                );
             }
         }
     }
