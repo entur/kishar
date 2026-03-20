@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import uk.org.siri.siri21.OccupancyEnumeration;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -276,6 +277,72 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
         assertEquals(feedMessage, byteArrayFeedMessage);
         return feedMessage;
+    }
+
+    @Test
+    public void testVmFallbackTimestampIsInSeconds() throws IOException {
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:1234";
+        String vehicleRefValue = "TST:Vehicle:1234";
+        String datasource = "TST";
+
+        SiriRecord siri = createSiriVmDeliveryWithoutRecordedAtTime(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
+
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
+        rtService.writeOutput();
+
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        long now = Instant.now().getEpochSecond();
+        assertTrue(vehiclePosition.getTimestamp() >= now - 5,
+                "Timestamp should be in seconds (>= now - 5s), but was: " + vehiclePosition.getTimestamp());
+        assertTrue(vehiclePosition.getTimestamp() <= now + 5,
+                "Timestamp should be in seconds (<= now + 5s), but was: " + vehiclePosition.getTimestamp());
+    }
+
+    private SiriRecord createSiriVmDeliveryWithoutRecordedAtTime(String lineRefValue, double latitude, double longitude, String datedVehicleJourneyRef, String vehicleRefValue, String datasource) {
+
+        ZonedDateTime now = ZonedDateTime.now();
+        String vmXml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <MoreData>true</MoreData>\n" +
+                "        <VehicleMonitoringDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "            <VehicleActivity>\n" +
+                "                <ValidUntilTime>" + now.plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ValidUntilTime>\n" +
+                "                <MonitoredVehicleJourney>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>309</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <VehicleLocation>\n" +
+                "                        <Longitude>" + longitude + "</Longitude>\n" +
+                "                        <Latitude>" + latitude + "</Latitude>\n" +
+                "                    </VehicleLocation>\n" +
+                "                    <VehicleStatus>inProgress</VehicleStatus>\n" +
+                "                    <VehicleRef>" + vehicleRefValue + "</VehicleRef>\n" +
+                "                    <IsCompleteStopSequence>false</IsCompleteStopSequence>\n" +
+                "                </MonitoredVehicleJourney>\n" +
+                "            </VehicleActivity>\n" +
+                "        </VehicleMonitoringDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        return createSiriRecord(vmXml);
     }
 
     private LocationRecord createLocation(double longitude, double latitude) {

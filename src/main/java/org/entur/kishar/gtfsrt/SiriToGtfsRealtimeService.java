@@ -46,7 +46,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -60,7 +59,6 @@ import static org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary.createFeedMess
 import static org.entur.kishar.gtfsrt.mappers.AvroHelper.getInstant;
 
 @Service
-@Configuration
 public class SiriToGtfsRealtimeService {
     private static final Logger LOG = LoggerFactory.getLogger(SiriToGtfsRealtimeService.class);
 
@@ -199,8 +197,9 @@ public class SiriToGtfsRealtimeService {
 
         Preconditions.checkNotNull(vehicleActivity.getMonitoredVehicleJourney(), "MonitoredVehicleJourney");
 
-        String datasource = vehicleActivity.getMonitoredVehicleJourney().getDataSource().toString();
-        Preconditions.checkNotNull(datasource, "datasource");
+        CharSequence dataSourceRef = vehicleActivity.getMonitoredVehicleJourney().getDataSource();
+        Preconditions.checkNotNull(dataSourceRef, "datasource");
+        String datasource = dataSourceRef.toString();
 
         if (prometheusMetricsService != null) {
             boolean notInWhitelist = datasourceVMWhitelist != null && !datasourceVMWhitelist.isEmpty() && !datasourceVMWhitelist.contains(datasource);
@@ -222,8 +221,9 @@ public class SiriToGtfsRealtimeService {
 
     private void checkPreconditions(EstimatedVehicleJourneyRecord estimatedVehicleJourney) {
 
-        String datasource = estimatedVehicleJourney.getDataSource().toString();
-        Preconditions.checkNotNull(datasource, "datasource");
+        CharSequence dataSourceRef = estimatedVehicleJourney.getDataSource();
+        Preconditions.checkNotNull(dataSourceRef, "datasource");
+        String datasource = dataSourceRef.toString();
         if (prometheusMetricsService != null) {
             boolean notInWhitelist = datasourceETWhitelist != null && !datasourceETWhitelist.isEmpty() && !datasourceETWhitelist.contains(datasource);
             prometheusMetricsService.registerIncomingEntity("SIRI_ET", notInWhitelist);
@@ -266,8 +266,8 @@ public class SiriToGtfsRealtimeService {
         Preconditions.checkNotNull(fvjRef.getDataFrameRef(),"DataFrameRef");
         Preconditions.checkNotNull(fvjRef.getDatedVehicleJourneyRef(),"DatedVehicleJourneyRef");
         Preconditions.checkArgument(
-                fvjRef.getDatedVehicleJourneyRef() != null && !fvjRef.getDatedVehicleJourneyRef().equals("null"),
-                "DatedVehicleJourneyRef");
+                !fvjRef.getDatedVehicleJourneyRef().equals("null"),
+                "DatedVehicleJourneyRef must not be the literal string 'null'");
     }
 
     private TripAndVehicleKey getKey(String tripId, String startDate, CharSequence vehicleRef) {
@@ -295,49 +295,46 @@ public class SiriToGtfsRealtimeService {
                 tripUpdates.getEntityCount());
     }
 
-    private void writeTripUpdates() {
+    private record FeedOutput(FeedMessage feed, Map<String, FeedMessage> byDatasource) {}
 
+    private FeedOutput buildFeedOutput(RedisService.Type type) {
         FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
-        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
+        Map<String, FeedMessage.Builder> byDatasource = Maps.newHashMap();
 
-        Map<String, byte[]> tripUpdateMap = redisService.readGtfsRtMap(RedisService.Type.TRIP_UPDATE);
+        Map<String, byte[]> entityMap = redisService.readGtfsRtMap(type);
 
-        for (String keyBytes : tripUpdateMap.keySet()) {
-            CompositeKey key = CompositeKey.create(keyBytes);
-
+        for (Map.Entry<String, byte[]> entry : entityMap.entrySet()) {
+            CompositeKey key = CompositeKey.create(entry.getKey());
             if (key == null) {
                 continue;
             }
-
             FeedEntity entity;
             try {
-                byte[] data = tripUpdateMap.get(keyBytes);
-                entity = FeedEntity.parseFrom(data);
+                entity = FeedEntity.parseFrom(entry.getValue());
             } catch (InvalidProtocolBufferException e) {
-                LOG.error("invalid feed entity from reddis with key: " + key, e);
+                LOG.error("Invalid feed entity from redis with key: {}", key, e);
                 continue;
             }
-
-            String datasource = key.getDatasource();
-            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
-            if (feedMessageBuilderByDatasource == null) {
-                feedMessageBuilderByDatasource = createFeedMessageBuilder();
-            }
-
             feedMessageBuilder.addEntity(entity);
-            feedMessageBuilderByDatasource.addEntity(entity);
-            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
+            byDatasource
+                .computeIfAbsent(key.getDatasource(), k -> createFeedMessageBuilder())
+                .addEntity(entity);
         }
 
-        setTripUpdates(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
+        return new FeedOutput(feedMessageBuilder.build(), buildFeedMessageMap(byDatasource));
     }
 
-    private Map<String, FeedMessage> buildFeedMessageMap(Map<String, FeedMessage.Builder> feedMessageBuilderMap) {
-        Map<String, FeedMessage> feedMessageMap = Maps.newHashMap();
-        for (String key : feedMessageBuilderMap.keySet()) {
-            feedMessageMap.put(key, feedMessageBuilderMap.get(key).build());
+    private void writeTripUpdates() {
+        FeedOutput output = buildFeedOutput(RedisService.Type.TRIP_UPDATE);
+        setTripUpdates(output.feed(), output.byDatasource());
+    }
+
+    private Map<String, FeedMessage> buildFeedMessageMap(Map<String, FeedMessage.Builder> builders) {
+        Map<String, FeedMessage> result = Maps.newHashMap();
+        for (Map.Entry<String, FeedMessage.Builder> entry : builders.entrySet()) {
+            result.put(entry.getKey(), entry.getValue().build());
         }
-        return feedMessageMap;
+        return result;
     }
 
     private String getTripIdForEstimatedVehicleJourney(TripUpdate.Builder tripUpdateBuilder) {
@@ -354,42 +351,8 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void writeVehiclePositions() {
-
-        FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
-        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
-
-        Map<String, byte[]> vehiclePositionMap = redisService.readGtfsRtMap(RedisService.Type.VEHICLE_POSITION);
-
-        for (String keyBytes : vehiclePositionMap.keySet()) {
-            CompositeKey key = CompositeKey.create(keyBytes);
-
-            if (key == null) {
-                continue;
-            }
-
-            FeedEntity entity;
-            try {
-                byte[] data = vehiclePositionMap.get(keyBytes);
-                entity = FeedEntity.parseFrom(data);
-            } catch (InvalidProtocolBufferException e) {
-                LOG.error("invalid feed entity from redis with key: " + key, e);
-                continue;
-            }
-
-            String datasource = key.getDatasource();
-
-            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
-
-            if (feedMessageBuilderByDatasource == null) {
-                feedMessageBuilderByDatasource = createFeedMessageBuilder();
-            }
-
-            feedMessageBuilder.addEntity(entity);
-            feedMessageBuilderByDatasource.addEntity(entity);
-            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
-        }
-
-        setVehiclePositions(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
+        FeedOutput output = buildFeedOutput(RedisService.Type.VEHICLE_POSITION);
+        setVehiclePositions(output.feed(), output.byDatasource());
     }
 
     private String getVehicleIdForKey(TripAndVehicleKey key) {
@@ -401,39 +364,8 @@ public class SiriToGtfsRealtimeService {
     }
 
     private void writeAlerts() {
-        FeedMessage.Builder feedMessageBuilder = createFeedMessageBuilder();
-        Map<String, FeedMessage.Builder> feedMessageBuilderMap = Maps.newHashMap();
-
-        Map<String, byte[]> alertMap = redisService.readGtfsRtMap(RedisService.Type.ALERT);
-
-        for (String keyBytes : alertMap.keySet()) {
-            CompositeKey key = CompositeKey.create(keyBytes);
-
-            if (key == null) {
-                continue;
-            }
-
-            FeedEntity entity;
-            try {
-                byte[] data = alertMap.get(keyBytes);
-                entity = FeedEntity.parseFrom(data);
-            } catch (InvalidProtocolBufferException e) {
-                LOG.error("invalid feed entity from reddis with key: " + key, e);
-                continue;
-            }
-
-            String datasource = key.getDatasource();
-            FeedMessage.Builder feedMessageBuilderByDatasource = feedMessageBuilderMap.get(datasource);
-            if (feedMessageBuilderByDatasource == null) {
-                feedMessageBuilderByDatasource = createFeedMessageBuilder();
-            }
-
-            feedMessageBuilder.addEntity(entity);
-            feedMessageBuilderByDatasource.addEntity(entity);
-            feedMessageBuilderMap.put(datasource, feedMessageBuilderByDatasource);
-        }
-
-        setAlerts(feedMessageBuilder.build(), buildFeedMessageMap(feedMessageBuilderMap));
+        FeedOutput output = buildFeedOutput(RedisService.Type.ALERT);
+        setAlerts(output.feed(), output.byDatasource());
     }
 
     @SuppressWarnings("unused")
@@ -510,7 +442,7 @@ public class SiriToGtfsRealtimeService {
             if (builder != null) {
 
                 if (builder.getTimestamp() <= 0) {
-                    builder.setTimestamp(System.currentTimeMillis());
+                    builder.setTimestamp(Instant.now().getEpochSecond());
                 }
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
@@ -644,8 +576,16 @@ public class SiriToGtfsRealtimeService {
                                 key,
                                 estimatedVehicleJourney.getDataSource().toString()
                         ).asString(), new GtfsRtData(entity.build().toByteArray(), timeToLive));
+            } catch (IllegalStateException e) {
+                String id = estimatedVehicleJourney.getDataSource() != null
+                        ? estimatedVehicleJourney.getDataSource().toString()
+                        : "unknown";
+                LOG.info("Skipping trip update from {}: {}", id, e.getMessage());
             } catch (Exception e) {
-                //LOG.debug("Failed parsing trip updates", e);
+                String id = estimatedVehicleJourney.getDataSource() != null
+                        ? estimatedVehicleJourney.getDataSource().toString()
+                        : "unknown";
+                LOG.warn("Failed parsing trip update from {}", id, e);
             }
         }
 
