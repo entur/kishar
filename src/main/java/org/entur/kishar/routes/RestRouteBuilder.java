@@ -16,9 +16,9 @@ package org.entur.kishar.routes;
 
 import org.apache.camel.builder.RouteBuilder;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
-@Configuration
+@Component
 public class RestRouteBuilder extends RouteBuilder {
 
     @Value("${kishar.incoming.port:8888}")

@@ -8,13 +8,11 @@ import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
 @Service
-@Configuration
 public class PubSubRoute extends RouteBuilder {
 
     @Value("${kishar.pubsub.enabled:false}")

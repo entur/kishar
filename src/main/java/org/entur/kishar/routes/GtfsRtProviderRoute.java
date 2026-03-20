@@ -16,11 +16,9 @@ package org.entur.kishar.routes;
 
 import org.entur.kishar.gtfsrt.SiriToGtfsRealtimeService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 @Service
-@Configuration
 public class GtfsRtProviderRoute extends RestRouteBuilder {
 
     private final SiriToGtfsRealtimeService siriToGtfsRealtimeService;
