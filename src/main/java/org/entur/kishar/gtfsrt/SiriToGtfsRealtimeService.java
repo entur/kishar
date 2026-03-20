@@ -580,7 +580,7 @@ public class SiriToGtfsRealtimeService {
                 String id = estimatedVehicleJourney.getDataSource() != null
                         ? estimatedVehicleJourney.getDataSource().toString()
                         : "unknown";
-                LOG.info("Skipping trip update from {}: {}", id, e.getMessage());
+                LOG.debug("Skipping trip update from {}: {}", id, e.getMessage());
             } catch (Exception e) {
                 String id = estimatedVehicleJourney.getDataSource() != null
                         ? estimatedVehicleJourney.getDataSource().toString()
