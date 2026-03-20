@@ -1,24 +1,22 @@
 package org.entur.kishar.gtfsrt;
 
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.avro.realtime.siri.model.PtSituationElementRecord;
+import org.entur.avro.realtime.siri.model.SiriRecord;
 import org.entur.kishar.gtfsrt.helpers.GtfsRealtimeLibrary;
 import org.entur.kishar.metrics.PrometheusMetricsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -27,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -44,6 +41,9 @@ public class TestConcurrencyAndThreadSafety extends SiriToGtfsRealtimeServiceTes
 
     @Autowired
     private PrometheusMetricsService prometheusMetricsService;
+
+    @Autowired
+    private AlertFactory alertFactory;
 
     private static final int NUM_THREADS = 10;
     private static final int OPERATIONS_PER_THREAD = 100;
@@ -219,70 +219,46 @@ public class TestConcurrencyAndThreadSafety extends SiriToGtfsRealtimeServiceTes
     }
 
     /**
-     * Test AlertFactory DateTimeFormatter thread-safety.
-     * Verifies that multiple threads can format dates concurrently without errors.
+     * Test AlertFactory is thread-safe.
+     * Verifies that 20 concurrent threads can each call createAlertFromSituation without errors,
+     * and that all results are non-null (confirming the Spring-managed bean is properly injected).
      */
     @Test
-    public void testAlertFactoryDateFormattingThreadSafety() throws InterruptedException {
-        AlertFactory alertFactory = new AlertFactory();
-        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
-        CountDownLatch latch = new CountDownLatch(NUM_THREADS);
+    public void alertFactoryIsThreadSafe() throws InterruptedException, ExecutionException {
+        assertNotNull(alertFactory, "AlertFactory must be injected by Spring");
+
+        PtSituationElementRecord situation = Helper.createPtSituationElement("TST");
+        int threadCount = 20;
+
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
         AtomicInteger errorCount = new AtomicInteger(0);
+        List<Future<GtfsRealtime.Alert.Builder>> futures = new ArrayList<>();
 
-        // Expected date format: yyyyMMdd
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
-        ZonedDateTime testDate = ZonedDateTime.now();
-        String expectedDate = formatter.format(LocalDate.ofInstant(testDate.toInstant(), ZoneId.systemDefault()));
-
-        List<Future<Set<String>>> futures = new ArrayList<>();
-
-        for (int i = 0; i < NUM_THREADS; i++) {
-            Callable<Set<String>> task = () -> {
-                Set<String> formattedDates = new HashSet<>();
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
                 try {
-                    for (int j = 0; j < OPERATIONS_PER_THREAD; j++) {
-                        // Create a situation with the same date
-                        var situation = Helper.createPtSituationElement("TST");
-
-                        // Format the date using the same logic as AlertFactory
-                        String formattedDate = formatter.format(
-                                LocalDate.ofInstant(testDate.toInstant(), ZoneId.systemDefault())
-                        );
-                        formattedDates.add(formattedDate);
-                    }
+                    startLatch.await(); // wait for all threads to be ready
+                    return alertFactory.createAlertFromSituation(situation);
                 } catch (Exception e) {
                     errorCount.incrementAndGet();
-                    System.err.println("Date formatting error: " + e.getMessage());
+                    System.err.println("AlertFactory concurrency error: " + e.getMessage());
                     e.printStackTrace();
+                    return null;
                 } finally {
-                    latch.countDown();
+                    doneLatch.countDown();
                 }
-                return formattedDates;
-            };
-            futures.add(executor.submit(task));
+            }));
         }
 
-        // Wait for all threads to complete
-        boolean completed = latch.await(30, TimeUnit.SECONDS);
+        startLatch.countDown(); // release all threads simultaneously to maximise contention
+        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
         assertTrue(completed, "All threads should complete within timeout");
+        assertEquals(0, errorCount.get(), "No exceptions should occur during concurrent AlertFactory calls");
 
-        // Verify no errors occurred
-        assertEquals(0, errorCount.get(), "No errors should occur during concurrent date formatting");
-
-        // Verify all dates are formatted correctly
-        for (Future<Set<String>> future : futures) {
-            try {
-                Set<String> dates = future.get(1, TimeUnit.SECONDS);
-                assertFalse(dates.isEmpty(), "Should have formatted dates");
-
-                // All dates should match the expected format
-                for (String date : dates) {
-                    assertEquals(expectedDate, date, "Date should be formatted correctly");
-                    assertEquals(8, date.length(), "Date should be 8 characters (yyyyMMdd)");
-                }
-            } catch (Exception e) {
-                fail("Future should complete successfully: " + e.getMessage());
-            }
+        for (Future<GtfsRealtime.Alert.Builder> future : futures) {
+            assertNotNull(future.get(), "createAlertFromSituation must return a non-null result");
         }
 
         executor.shutdown();
@@ -420,5 +396,113 @@ public class TestConcurrencyAndThreadSafety extends SiriToGtfsRealtimeServiceTes
 
         executor.shutdown();
         assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS), "Executor should terminate");
+    }
+
+    /**
+     * Test GtfsRtMapper date formatting is thread-safe.
+     * Verifies that concurrent calls to convertSiriToGtfsRt produce correct startDate strings.
+     * With SimpleDateFormat this would corrupt internal state and produce garbled dates.
+     * With DateTimeFormatter (thread-safe) all results must be the expected UTC date string.
+     */
+    @Test
+    void gtfsRtMapperDateFormattingIsThreadSafe() throws InterruptedException, ExecutionException {
+        // Fixed departure time in UTC: 2024-12-20T08:00:00Z → startDate should be "20241220"
+        ZonedDateTime departureTime = ZonedDateTime.parse("2024-12-20T08:00:00Z");
+        String expectedStartDate = "20241220";
+        String expectedStartTime = "08:00:00";
+
+        String vmXml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" " +
+                "xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" " +
+                "xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>2024-12-20T08:00:00Z</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <VehicleMonitoringDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>2024-12-20T08:00:00Z</ResponseTimestamp>\n" +
+                "            <VehicleActivity>\n" +
+                "                <RecordedAtTime>2024-12-20T08:00:00Z</RecordedAtTime>\n" +
+                "                <ValidUntilTime>2024-12-20T08:10:00Z</ValidUntilTime>\n" +
+                "                <MonitoredVehicleJourney>\n" +
+                "                    <LineRef>TST:Line:1234</LineRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>TST:ServiceJourney:1234</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <OriginAimedDepartureTime>2024-12-20T08:00:00Z</OriginAimedDepartureTime>\n" +
+                "                    <DataSource>TST</DataSource>\n" +
+                "                    <VehicleLocation>\n" +
+                "                        <Longitude>10.56</Longitude>\n" +
+                "                        <Latitude>59.63</Latitude>\n" +
+                "                    </VehicleLocation>\n" +
+                "                    <VehicleRef>TST:Vehicle:1234</VehicleRef>\n" +
+                "                </MonitoredVehicleJourney>\n" +
+                "            </VehicleActivity>\n" +
+                "        </VehicleMonitoringDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        SiriRecord siriRecord = createSiriRecord(vmXml);
+        assertNotNull(siriRecord, "SiriRecord must be created successfully");
+
+        int threadCount = 20;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
+        AtomicInteger errorCount = new AtomicInteger(0);
+        List<Future<List<String>>> futures = new ArrayList<>();
+
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                List<String> startDates = new ArrayList<>();
+                try {
+                    startLatch.await(); // wait for all threads to be ready
+                    for (int j = 0; j < 50; j++) {
+                        var result = rtService.convertSiriToGtfsRt(siriRecord);
+                        // Extract startDate from the resulting vehicle position trip descriptor
+                        for (var entry : result.entrySet()) {
+                            GtfsRealtime.FeedEntity entity = GtfsRealtime.FeedEntity.parseFrom(
+                                    entry.getValue().getData()
+                            );
+                            if (entity.hasVehicle()) {
+                                String startDate = entity.getVehicle().getTrip().getStartDate();
+                                if (!startDate.isEmpty()) {
+                                    startDates.add(startDate);
+                                }
+                                String startTime = entity.getVehicle().getTrip().getStartTime();
+                                if (!startTime.isEmpty()) {
+                                    startDates.add(startTime);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    errorCount.incrementAndGet();
+                    System.err.println("GtfsRtMapper concurrency error: " + e.getMessage());
+                    e.printStackTrace();
+                } finally {
+                    doneLatch.countDown();
+                }
+                return startDates;
+            }));
+        }
+
+        startLatch.countDown(); // release all threads simultaneously to maximise contention
+        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+        assertTrue(completed, "All threads should complete within timeout");
+        assertEquals(0, errorCount.get(), "No errors should occur during concurrent date formatting");
+
+        for (Future<List<String>> future : futures) {
+            List<String> dates = future.get();
+            for (String value : dates) {
+                // values alternate between startDate ("20241220") and startTime ("08:00:00")
+                assertTrue(
+                        value.equals(expectedStartDate) || value.equals(expectedStartTime),
+                        "Date/time value must not be garbled by concurrent formatting. Got: " + value
+                );
+            }
+        }
+
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "Executor should terminate");
     }
 }
