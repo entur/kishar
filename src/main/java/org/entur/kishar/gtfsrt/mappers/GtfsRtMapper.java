@@ -14,16 +14,18 @@ import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
 import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
 import org.entur.kishar.gtfsrt.helpers.graphql.model.ServiceJourney;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class GtfsRtMapper extends AvroHelper {
 
-    private final DateFormat gtfsRtDateFormat = new SimpleDateFormat("yyyyMMdd");
-    private final DateFormat gtfsRtTimeFormat = new SimpleDateFormat("HH:mm:ss");
+    private static final DateTimeFormatter GTFS_RT_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter GTFS_RT_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneOffset.UTC);
     private final ServiceJourneyService serviceJourneyService;
 
     private final int closeToNextStopPercentage;
@@ -39,7 +41,7 @@ public class GtfsRtMapper extends AvroHelper {
         GtfsRealtime.TripUpdate.Builder tripUpdate = GtfsRealtime.TripUpdate.newBuilder();
 
         GtfsRealtime.TripDescriptor td = getEstimatedVehicleJourneyAsTripDescriptor(vehicleJourney);
-        if (td.getTripId() != null) {
+        if (!td.getTripId().isEmpty()) {
             tripUpdate.setTrip(td);
         }
 
@@ -219,10 +221,10 @@ public class GtfsRtMapper extends AvroHelper {
 
         if (mvj.getOriginAimedDepartureTime() != null) {
 
-            final Date date = new Date(getInstant(mvj.getOriginAimedDepartureTime()).toEpochMilli());
+            Instant departureInstant = getInstant(mvj.getOriginAimedDepartureTime());
 
-            td.setStartDate(gtfsRtDateFormat.format(date));
-            td.setStartTime(gtfsRtTimeFormat.format(date));
+            td.setStartDate(GTFS_RT_DATE_FORMAT.format(departureInstant));
+            td.setStartTime(GTFS_RT_TIME_FORMAT.format(departureInstant));
         }
 
         return td.build();
@@ -243,10 +245,10 @@ public class GtfsRtMapper extends AvroHelper {
 
             if (originAimedDepartureTime != null) {
 
-                final Date date = new Date(getInstant(originAimedDepartureTime).toEpochMilli());
+                Instant departureInstant = getInstant(originAimedDepartureTime);
 
-                td.setStartDate(gtfsRtDateFormat.format(date));
-                td.setStartTime(gtfsRtTimeFormat.format(date));
+                td.setStartDate(GTFS_RT_DATE_FORMAT.format(departureInstant));
+                td.setStartTime(GTFS_RT_TIME_FORMAT.format(departureInstant));
             } else if (serviceJourney.getDate() != null){
                 td.setStartDate(serviceJourney.getDate().replaceAll("-", ""));
             }
@@ -298,7 +300,7 @@ public class GtfsRtMapper extends AvroHelper {
         if (recordedCalls != null) {
             for (RecordedCallRecord recordedCall : recordedCalls) {
                 if (recordedCall.getStopPointRef() == null) {
-                    return;
+                    continue;
                 }
                 String stopPointRef = recordedCall.getStopPointRef().toString();
                 Integer arrivalDelayInSeconds = null;
@@ -346,7 +348,7 @@ public class GtfsRtMapper extends AvroHelper {
         if (estimatedCalls != null) {
             for (EstimatedCallRecord estimatedCall : estimatedCalls) {
                 if (estimatedCall.getStopPointRef() == null) {
-                    return;
+                    continue;
                 }
                 String  stopPointRef = estimatedCall.getStopPointRef().toString();
 

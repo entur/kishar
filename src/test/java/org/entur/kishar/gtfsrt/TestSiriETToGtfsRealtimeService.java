@@ -2,8 +2,10 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.collect.Maps;
 import com.google.transit.realtime.GtfsRealtime;
+import org.entur.avro.realtime.siri.model.EstimatedVehicleJourneyRecord;
 import org.entur.avro.realtime.siri.model.SiriRecord;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
+import org.entur.kishar.gtfsrt.mappers.GtfsRtMapper;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -443,5 +445,211 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
                 "                            <DepartureStatus>delayed</DepartureStatus>\n"
                         ) +
                 "                        </EstimatedCall>\n";
+    }
+
+    /**
+     * Bug 1 regression test: an intermediate EstimatedCall with a missing StopPointRef should be
+     * skipped (continue), not cause the remaining stops to be dropped (return).
+     * With the bug present the TripUpdate would contain only the first stop; after the fix it
+     * must contain two stop-time updates (stops 1 and 3, stop 2 skipped).
+     */
+    @Test
+    public void testNullStopPointRefInMiddleCallDoesNotTruncateStopList() throws Exception {
+        String lineRefValue = "TST:Line:1234";
+        String datedVehicleJourneyRef = "TST:ServiceJourney:9999";
+        String datasource = "TST";
+
+        String startTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        String aimedTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String expectedTime = ZonedDateTime.now().plusSeconds(30).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        // Call 1 - normal stop
+        String call1 = "                        <EstimatedCall>\n" +
+                "                            <StopPointRef>TST:Quay:stop-1</StopPointRef>\n" +
+                "                            <Order>1</Order>\n" +
+                "                            <AimedDepartureTime>" + aimedTime + "</AimedDepartureTime>\n" +
+                "                            <ExpectedDepartureTime>" + expectedTime + "</ExpectedDepartureTime>\n" +
+                "                            <DepartureStatus>delayed</DepartureStatus>\n" +
+                "                        </EstimatedCall>\n";
+
+        // Call 2 - StopPointRef intentionally omitted to simulate null stopPointRef
+        String call2 = "                        <EstimatedCall>\n" +
+                "                            <Order>2</Order>\n" +
+                "                            <AimedArrivalTime>" + aimedTime + "</AimedArrivalTime>\n" +
+                "                            <ExpectedArrivalTime>" + expectedTime + "</ExpectedArrivalTime>\n" +
+                "                            <ArrivalStatus>delayed</ArrivalStatus>\n" +
+                "                            <AimedDepartureTime>" + aimedTime + "</AimedDepartureTime>\n" +
+                "                            <ExpectedDepartureTime>" + expectedTime + "</ExpectedDepartureTime>\n" +
+                "                            <DepartureStatus>delayed</DepartureStatus>\n" +
+                "                        </EstimatedCall>\n";
+
+        // Call 3 - normal stop
+        String call3 = "                        <EstimatedCall>\n" +
+                "                            <StopPointRef>TST:Quay:stop-3</StopPointRef>\n" +
+                "                            <Order>3</Order>\n" +
+                "                            <AimedArrivalTime>" + aimedTime + "</AimedArrivalTime>\n" +
+                "                            <ExpectedArrivalTime>" + expectedTime + "</ExpectedArrivalTime>\n" +
+                "                            <ArrivalStatus>delayed</ArrivalStatus>\n" +
+                "                        </EstimatedCall>\n";
+
+        String xml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + startTime + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <EstimatedTimetableDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + startTime + "</ResponseTimestamp>\n" +
+                "            <EstimatedJourneyVersionFrame>\n" +
+                "                <RecordedAtTime>" + startTime + "</RecordedAtTime>\n" +
+                "                <EstimatedVehicleJourney>\n" +
+                "                    <RecordedAtTime>" + startTime + "</RecordedAtTime>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <DirectionRef>0</DirectionRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>" + datasource + ":Operator:123</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <EstimatedCalls>\n" +
+                call1 + call2 + call3 +
+                "                    </EstimatedCalls>\n" +
+                "                    <IsCompleteStopSequence>true</IsCompleteStopSequence>\n" +
+                "                </EstimatedVehicleJourney>\n" +
+                "            </EstimatedJourneyVersionFrame>\n" +
+                "        </EstimatedTimetableDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        SiriRecord siri = createSiriRecord(xml);
+        assertNotNull(siri);
+
+        EstimatedVehicleJourneyRecord evj = siri.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        Map<String, GtfsRtData> result = rtService.convertSiriEtToGtfsRt(evj);
+        assertFalse(result.isEmpty());
+
+        GtfsRtData gtfsRtData = result.values().iterator().next();
+        GtfsRealtime.FeedEntity feedEntity = GtfsRealtime.FeedEntity.parseFrom(gtfsRtData.getData());
+        GtfsRealtime.TripUpdate tripUpdate = feedEntity.getTripUpdate();
+
+        // Stop 2 (null stopPointRef) must be skipped; stops 1 and 3 must be present
+        assertEquals(2, tripUpdate.getStopTimeUpdateCount(),
+                "Expected 2 stop-time updates (stop 1 and stop 3); stop 2 with null stopPointRef must be skipped, not truncate the list");
+    }
+
+    /**
+     * Bug 2 regression test (positive path): when a FramedVehicleJourneyRef is present the
+     * TripDescriptor's getTripId() returns a non-empty string, not null. The guard must use
+     * isEmpty() rather than a null check so that the TripDescriptor is actually set on the
+     * TripUpdate.
+     */
+    @Test
+    public void testTripDescriptorIsSetWhenFramedVehicleJourneyRefPresent() throws Exception {
+        String lineRefValue = "TST:Line:1234";
+        String datedVehicleJourneyRef = "TST:ServiceJourney:5678";
+        String datasource = "TST";
+
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, 1, 30, datedVehicleJourneyRef, datasource);
+        assertNotNull(siri);
+
+        EstimatedVehicleJourneyRecord evj = siri.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        Map<String, GtfsRtData> result = rtService.convertSiriEtToGtfsRt(evj);
+        assertFalse(result.isEmpty());
+
+        GtfsRtData gtfsRtData = result.values().iterator().next();
+        GtfsRealtime.FeedEntity feedEntity = GtfsRealtime.FeedEntity.parseFrom(gtfsRtData.getData());
+        GtfsRealtime.TripUpdate tripUpdate = feedEntity.getTripUpdate();
+
+        assertTrue(tripUpdate.hasTrip(), "TripDescriptor must be set when FramedVehicleJourneyRef is present");
+        assertFalse(tripUpdate.getTrip().getTripId().isEmpty(),
+                "TripId must not be empty when FramedVehicleJourneyRef is present");
+        assertEquals(datedVehicleJourneyRef, tripUpdate.getTrip().getTripId());
+    }
+
+    /**
+     * Bug 2 regression test (negative / guard path): when a DatedVehicleJourneyRef is present but
+     * cannot be resolved (no FramedVehicleJourneyRef and the ServiceJourneyService lookup returns
+     * a ServiceJourney with a null id), getEstimatedVehicleJourneyAsTripDescriptor never calls
+     * setTripId(), so getTripId() returns "" (empty string, never null in protobuf).
+     *
+     * <p>With the old {@code != null} guard, setTrip() would have been called with an empty
+     * TripDescriptor (wrong). The fix uses {@code !isEmpty()}, so the trip must NOT be set.
+     *
+     * <p>A DatedVehicleJourneyRef containing ":DatedServiceJourney:" triggers a GraphQL lookup in
+     * ServiceJourneyService. In the test environment no real GraphQL server is available, so the
+     * lookup fails and returns a ServiceJourney with id == null — causing setTripId() to be skipped.
+     * The EVJ passes checkPreconditions() because it has a non-null DatedVehicleJourneyRef.
+     */
+    @Test
+    public void testTripDescriptorNotSetWhenTripIdWouldBeEmpty() throws Exception {
+        String lineRefValue = "TST:Line:1234";
+        String datasource = "TST";
+        // Use ":DatedServiceJourney:" so ServiceJourneyService attempts a GraphQL lookup,
+        // which will fail in the test environment and return a ServiceJourney with id == null.
+        String datedServiceJourneyRef = "TST:DatedServiceJourney:unresolvable-9999";
+        String startTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        String aimedTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String expectedTime = ZonedDateTime.now().plusSeconds(30).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+
+        // Build XML without FramedVehicleJourneyRef — only DatedVehicleJourneyRef is set
+        String xml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + startTime + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <EstimatedTimetableDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + startTime + "</ResponseTimestamp>\n" +
+                "            <EstimatedJourneyVersionFrame>\n" +
+                "                <RecordedAtTime>" + startTime + "</RecordedAtTime>\n" +
+                "                <EstimatedVehicleJourney>\n" +
+                "                    <RecordedAtTime>" + startTime + "</RecordedAtTime>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <DirectionRef>0</DirectionRef>\n" +
+                "                    <DatedVehicleJourneyRef>" + datedServiceJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>" + datasource + ":Operator:123</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <EstimatedCalls>\n" +
+                "                        <EstimatedCall>\n" +
+                "                            <StopPointRef>TST:Quay:001</StopPointRef>\n" +
+                "                            <Order>1</Order>\n" +
+                "                            <AimedDepartureTime>" + aimedTime + "</AimedDepartureTime>\n" +
+                "                            <ExpectedDepartureTime>" + expectedTime + "</ExpectedDepartureTime>\n" +
+                "                            <DepartureStatus>delayed</DepartureStatus>\n" +
+                "                        </EstimatedCall>\n" +
+                "                    </EstimatedCalls>\n" +
+                "                    <IsCompleteStopSequence>true</IsCompleteStopSequence>\n" +
+                "                </EstimatedVehicleJourney>\n" +
+                "            </EstimatedJourneyVersionFrame>\n" +
+                "        </EstimatedTimetableDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        SiriRecord siri = createSiriRecord(xml);
+        assertNotNull(siri);
+
+        EstimatedVehicleJourneyRecord evj = siri.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        // Call the mapper directly to isolate the !isEmpty() guard behaviour.
+        // (Going through convertSiriEtToGtfsRt would also work, but the TripUpdate is serialized
+        // to bytes there; direct mapper access gives a cleaner assertion.)
+        GtfsRtMapper mapper = new GtfsRtMapper(NEXT_STOP_PERCENTAGE, NEXT_STOP_DISTANCE, serviceJourneyService);
+        GtfsRealtime.TripUpdate.Builder tripUpdate = mapper.mapTripUpdateFromVehicleJourney(evj);
+
+        assertFalse(tripUpdate.hasTrip(),
+                "TripDescriptor must NOT be set when getTripId() would return an empty string; " +
+                "the !isEmpty() guard prevents setTrip() from being called with an empty TripDescriptor");
     }
 }
