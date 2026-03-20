@@ -12,7 +12,6 @@ import org.redisson.config.Config;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -21,7 +20,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@Configuration
 public class RedisService {
 
     enum Type {
@@ -43,7 +41,7 @@ public class RedisService {
     private static final Logger LOG = LoggerFactory.getLogger(RedisService.class);
     private final boolean redisEnabled;
 
-    private static Cache<String, Cache<String, byte[]>> hashMapRedisMock;
+    private Cache<String, Cache<String, byte[]>> hashMapRedisMock;
 
     RedissonClient redisson;
 
@@ -90,11 +88,11 @@ public class RedisService {
     public void writeGtfsRt(Map<String, GtfsRtData> gtfsRt, Type type) {
         if (redisEnabled) {
             RMapCache<byte[], byte[]> gtfsRtMap = redisson.getMapCache(type.getMapIdentifier(), ByteArrayCodec.INSTANCE);
-            for (String key : gtfsRt.keySet()) {
-                GtfsRtData gtfsRtData = gtfsRt.get(key);
+            for (Map.Entry<String, GtfsRtData> entry : gtfsRt.entrySet()) {
+                GtfsRtData gtfsRtData = entry.getValue();
                 long timeToLive = gtfsRtData.getTimeToLive().getSeconds();
                 if (timeToLive > 0) {
-                    gtfsRtMap.put(key.getBytes(), gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
+                    gtfsRtMap.put(entry.getKey().getBytes(), gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
                 }
             }
         } else {
@@ -106,9 +104,8 @@ public class RedisService {
                         .expireAfterWrite(1, TimeUnit.HOURS)
                         .build()
                 );
-                for (String key : gtfsRt.keySet()) {
-                    GtfsRtData gtfsRtData = gtfsRt.get(key);
-                    map.put(key, gtfsRtData.getData());
+                for (Map.Entry<String, GtfsRtData> entry : gtfsRt.entrySet()) {
+                    map.put(entry.getKey(), entry.getValue().getData());
                 }
             } catch (Exception e) {
                 LOG.error("Failed to write to cache", e);
