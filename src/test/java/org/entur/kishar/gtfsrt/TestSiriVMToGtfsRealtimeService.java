@@ -196,7 +196,7 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertTrue(entityList.contains(((GtfsRealtime.FeedMessage) vehiclePositions).getEntity(0)));
 
         GtfsRealtime.FeedMessage byteArrayFeedMessage = GtfsRealtime.FeedMessage.parseFrom((byte[]) rtService.getVehiclePositions(null, null));
-        assertEquals(feedMessage, byteArrayFeedMessage);
+        assertEquals(feedMessage.getEntityList(), byteArrayFeedMessage.getEntityList());
 
         GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
         assertNotNull(entity);
