@@ -572,6 +572,9 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertTrue(tripUpdate.hasTrip(), "TripDescriptor must be set when FramedVehicleJourneyRef is present");
         assertFalse(tripUpdate.getTrip().getTripId().isEmpty(),
                 "TripId must not be empty when FramedVehicleJourneyRef is present");
+        assertFalse(tripUpdate.getTrip().getStartDate().isEmpty(),
+                "StartDate must not be empty when FramedVehicleJourneyRef is present");
+
         assertEquals(datedVehicleJourneyRef, tripUpdate.getTrip().getTripId());
     }
 
