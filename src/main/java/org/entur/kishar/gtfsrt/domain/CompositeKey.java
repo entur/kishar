@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 
 @SuppressWarnings("unused")
 public class CompositeKey implements Serializable {
@@ -25,7 +26,7 @@ public class CompositeKey implements Serializable {
     }
 
     public static CompositeKey reCreate(byte[] input) {
-        return create(new String(input));
+        return create(new String(input, StandardCharsets.UTF_8));
     }
 
     public static CompositeKey create(String input) {

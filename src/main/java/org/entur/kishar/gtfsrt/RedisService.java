@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -92,7 +93,7 @@ public class RedisService {
                 GtfsRtData gtfsRtData = entry.getValue();
                 long timeToLive = gtfsRtData.getTimeToLive().getSeconds();
                 if (timeToLive > 0) {
-                    gtfsRtMap.put(entry.getKey().getBytes(), gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
+                    gtfsRtMap.put(entry.getKey().getBytes(StandardCharsets.UTF_8), gtfsRtData.getData(), timeToLive, TimeUnit.SECONDS);
                 }
             }
         } else {
