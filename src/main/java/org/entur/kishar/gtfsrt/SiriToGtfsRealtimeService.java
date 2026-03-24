@@ -341,9 +341,12 @@ public class SiriToGtfsRealtimeService {
         StringBuilder b = new StringBuilder();
 
         b.append((tripUpdateBuilder.getTrip().getTripId()));
-        b.append('-');
-        b.append(tripUpdateBuilder.getTrip().getStartDate());
-        if (tripUpdateBuilder.getVehicle() != null) {
+        if (!tripUpdateBuilder.getTrip().getStartDate().isEmpty()) {
+            b.append('-');
+            b.append(tripUpdateBuilder.getTrip().getStartDate());
+        }
+
+        if (!tripUpdateBuilder.getVehicle().getId().isEmpty()) {
             b.append('-');
             b.append(tripUpdateBuilder.getVehicle().getId());
         }
