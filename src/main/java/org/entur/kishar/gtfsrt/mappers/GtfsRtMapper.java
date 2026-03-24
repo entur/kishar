@@ -191,6 +191,9 @@ public class GtfsRtMapper extends AvroHelper {
     }
 
     private GtfsRealtime.VehicleDescriptor getMonitoredVehicleJourneyAsVehicleDescriptor(MonitoredVehicleJourneyRecord mvj) {
+        if (mvj.getVehicleRef() == null) {
+            return null;
+        }
         String vehicleRef = mvj.getVehicleRef().toString();
         if (vehicleRef.isBlank()) {
             return null;
@@ -214,7 +217,7 @@ public class GtfsRtMapper extends AvroHelper {
 
         FramedVehicleJourneyRefRecord fvjRef = mvj.getFramedVehicleJourneyRef();
         td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
-        td.setStartDate(fvjRef.getDataFrameRef().toString());
+        td.setStartDate(fvjRef.getDataFrameRef().toString().replace("-", ""));
 
         if (mvj.getLineRef() != null) {
             td.setRouteId( mvj.getLineRef().toString());
@@ -265,7 +268,7 @@ public class GtfsRtMapper extends AvroHelper {
         if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
             FramedVehicleJourneyRefRecord fvjRef = estimatedVehicleJourney.getFramedVehicleJourneyRef();
             td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
-            td.setStartDate(fvjRef.getDataFrameRef().toString());
+            td.setStartDate(fvjRef.getDataFrameRef().toString().replace("-", ""));
         } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
             ServiceJourney serviceJourney = serviceJourneyService.getServiceJourneyFromDatedServiceJourney(estimatedVehicleJourney.getDatedVehicleJourneyRef().toString());
             if (serviceJourney != null && serviceJourney.getId() != null) {

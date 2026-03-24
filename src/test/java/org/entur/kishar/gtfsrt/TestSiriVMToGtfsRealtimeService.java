@@ -237,6 +237,99 @@ public class TestSiriVMToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     @Test
+    public void testVmWithNullVehicleRefProducesVehiclePosition() throws IOException {
+        // Issue #5: VehicleRef is null but FramedVehicleJourneyRef is set.
+        // The mapper must not throw an NPE and must still produce a valid vehicle position.
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:9876";
+        String datasource = "TST";
+
+        ZonedDateTime now = ZonedDateTime.now();
+        String vmXml = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <MoreData>true</MoreData>\n" +
+                "        <VehicleMonitoringDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ResponseTimestamp>\n" +
+                "            <VehicleActivity>\n" +
+                "                <RecordedAtTime>" + now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</RecordedAtTime>\n" +
+                "                <ValidUntilTime>" + now.plusMinutes(10).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + "</ValidUntilTime>\n" +
+                "                <MonitoredVehicleJourney>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OperatorRef>309</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>" + datasource + "</DataSource>\n" +
+                "                    <VehicleLocation>\n" +
+                "                        <Longitude>" + longitude + "</Longitude>\n" +
+                "                        <Latitude>" + latitude + "</Latitude>\n" +
+                "                    </VehicleLocation>\n" +
+                "                    <VehicleStatus>inProgress</VehicleStatus>\n" +
+                // VehicleRef intentionally omitted to test null handling
+                "                    <IsCompleteStopSequence>false</IsCompleteStopSequence>\n" +
+                "                </MonitoredVehicleJourney>\n" +
+                "            </VehicleActivity>\n" +
+                "        </VehicleMonitoringDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        SiriRecord siri = createSiriRecord(vmXml);
+
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
+        rtService.writeOutput();
+
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
+
+        assertFalse(feedMessage.getEntityList().isEmpty(), "Expected at least one entity to be produced");
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        // Trip should still be populated
+        assertEquals(datedVehicleJourneyRef, vehiclePosition.getTrip().getTripId());
+
+        // Vehicle descriptor should be absent (VehicleRef was null)
+        assertFalse(vehiclePosition.hasVehicle(), "VehicleDescriptor should not be set when VehicleRef is null");
+    }
+
+    @Test
+    public void testVmDataFrameRefStartDateFormatIsYYYYMMDD() throws IOException {
+        // Issue #14: DataFrameRef arrives as "YYYY-MM-DD" but GTFS-RT requires "YYYYMMDD".
+        // The hyphens must be stripped before setting startDate on the TripDescriptor.
+        String lineRefValue = "TST:Line:1234";
+        double latitude = 10.56;
+        double longitude = 59.63;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:5555";
+        String vehicleRefValue = "TST:Vehicle:5555";
+        String datasource = "TST";
+
+        SiriRecord siri = createSiriVmDelivery(lineRefValue, latitude, longitude, datedVehicleJourneyRef, vehicleRefValue, datasource);
+
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.VEHICLE_POSITION);
+        rtService.writeOutput();
+
+        GtfsRealtime.FeedMessage feedMessage = getFeedMessage(rtService);
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.VehiclePosition vehiclePosition = entity.getVehicle();
+        assertNotNull(vehiclePosition);
+
+        String startDate = vehiclePosition.getTrip().getStartDate();
+        assertFalse(startDate.isEmpty(), "StartDate must not be empty");
+        assertFalse(startDate.contains("-"), "StartDate must not contain hyphens; expected YYYYMMDD format but got: " + startDate);
+        assertEquals(8, startDate.length(), "StartDate must be 8 characters (YYYYMMDD) but was: " + startDate);
+    }
+
+    @Test
     public void testMappingOfSiriVm() {
 
         String stopPointRefValue = "TST:Quay:1234";

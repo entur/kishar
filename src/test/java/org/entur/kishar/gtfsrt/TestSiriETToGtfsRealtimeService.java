@@ -349,6 +349,39 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     @Test
+    public void testEtDataFrameRefStartDateFormatIsYYYYMMDD() throws IOException {
+        // Issue #14: DataFrameRef arrives as "YYYY-MM-DD" but GTFS-RT requires "YYYYMMDD".
+        // The hyphens must be stripped before setting startDate on the TripDescriptor.
+        String lineRefValue = "TST:Line:1234";
+        int delayPerStop = 30;
+        String datedVehicleJourneyRef = "TST:ServiceJourney:7777";
+        String datasource = "TST";
+
+        SiriRecord siri = createSiriEtDelivery(lineRefValue, 1, delayPerStop, datedVehicleJourneyRef, datasource);
+
+        redisService.writeGtfsRt(rtService.convertSiriToGtfsRt(siri), RedisService.Type.TRIP_UPDATE);
+        rtService.writeOutput();
+
+        Object tripUpdates = rtService.getTripUpdates("application/json", null);
+        assertNotNull(tripUpdates);
+        assertInstanceOf(GtfsRealtime.FeedMessage.class, tripUpdates);
+
+        GtfsRealtime.FeedMessage feedMessage = (GtfsRealtime.FeedMessage) tripUpdates;
+        List<GtfsRealtime.FeedEntity> entityList = feedMessage.getEntityList();
+        assertFalse(entityList.isEmpty());
+
+        GtfsRealtime.FeedEntity entity = feedMessage.getEntity(0);
+        assertNotNull(entity);
+        GtfsRealtime.TripUpdate tripUpdate = entity.getTripUpdate();
+        assertNotNull(tripUpdate);
+
+        String startDate = tripUpdate.getTrip().getStartDate();
+        assertFalse(startDate.isEmpty(), "StartDate must not be empty");
+        assertFalse(startDate.contains("-"), "StartDate must not contain hyphens; expected YYYYMMDD format but got: " + startDate);
+        assertEquals(8, startDate.length(), "StartDate must be 8 characters (YYYYMMDD) but was: " + startDate);
+    }
+
+    @Test
     public void testMappingOfSiriEt() {
         String lineRefValue = "TST:Line:1234";
         int delayPerStop = 30;
