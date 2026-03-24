@@ -614,6 +614,87 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
     }
 
     /**
+     * Issue #6 regression test: the ET cache key must be derived from the source VehicleRef field,
+     * not from the protobuf builder's getVehicle().getId() which returns an empty string when no
+     * VehicleDescriptor was set. Two updates for the same journey — one without VehicleRef, one
+     * with — must produce the same key so the second overwrites the first.
+     */
+    @Test
+    public void testEtKeyIsStableRegardlessOfVehicleRef() {
+        String lineRefValue = "TST:Line:1234";
+        String datedVehicleJourneyRef = "TST:ServiceJourney:6000";
+        String datasource = "TST";
+
+        SiriRecord siriWithout = createSiriEtDelivery(lineRefValue, 1, 30, datedVehicleJourneyRef, datasource);
+        SiriRecord siriWith = createSiriEtDeliveryWithVehicleRef(lineRefValue, 1, 30, datedVehicleJourneyRef, datasource, "VH:1");
+
+        EstimatedVehicleJourneyRecord evjWithout = siriWithout.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        EstimatedVehicleJourneyRecord evjWith = siriWith.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        Map<String, GtfsRtData> resultWithout = rtService.convertSiriEtToGtfsRt(evjWithout);
+        Map<String, GtfsRtData> resultWith = rtService.convertSiriEtToGtfsRt(evjWith);
+
+        assertEquals(1, resultWithout.size(), "Map without VehicleRef must have exactly one entry");
+        assertEquals(1, resultWith.size(), "Map with VehicleRef must have exactly one entry");
+
+        String keyWithout = resultWithout.keySet().iterator().next();
+        String keyWith = resultWith.keySet().iterator().next();
+
+        assertEquals(keyWithout, keyWith,
+                "ET cache key must be the same regardless of whether VehicleRef is present; " +
+                "found different keys: '" + keyWithout + "' vs '" + keyWith + "'");
+    }
+
+    private SiriRecord createSiriEtDeliveryWithVehicleRef(String lineRefValue, int calls, int delayPerStop,
+                                                           String datedVehicleJourneyRef, String datasource,
+                                                           String vehicleRef) {
+        String startTime = ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        String etXmlHead = "<Siri version=\"2.0\" xmlns=\"http://www.siri.org.uk/siri\" xmlns:ns2=\"http://www.ifopt.org.uk/acsb\" xmlns:ns3=\"http://www.ifopt.org.uk/ifopt\" xmlns:ns4=\"http://datex2.eu/schema/2_0RC1/2_0\">\n" +
+                "    <ServiceDelivery>\n" +
+                "        <ResponseTimestamp>" + startTime +"</ResponseTimestamp>\n" +
+                "        <ProducerRef>ENT</ProducerRef>\n" +
+                "        <EstimatedTimetableDelivery version=\"2.0\">\n" +
+                "            <ResponseTimestamp>" + startTime +"</ResponseTimestamp>\n" +
+                "            <EstimatedJourneyVersionFrame>\n" +
+                "                <RecordedAtTime>" + startTime +"</RecordedAtTime>\n" +
+                "                <EstimatedVehicleJourney>\n" +
+                "                    <RecordedAtTime>" + startTime +"</RecordedAtTime>\n" +
+                "                    <LineRef>" + lineRefValue + "</LineRef>\n" +
+                "                    <DirectionRef>0</DirectionRef>\n" +
+                "                    <FramedVehicleJourneyRef>\n" +
+                "                        <DataFrameRef>2024-12-20</DataFrameRef>\n" +
+                "                        <DatedVehicleJourneyRef>" + datedVehicleJourneyRef + "</DatedVehicleJourneyRef>\n" +
+                "                    </FramedVehicleJourneyRef>\n" +
+                "                    <VehicleRef>" + vehicleRef + "</VehicleRef>\n" +
+                "                    <VehicleMode>bus</VehicleMode>\n" +
+                "                    <OriginName>Teste Hageby</OriginName>\n" +
+                "                    <OperatorRef>" + datasource +":Operator:123</OperatorRef>\n" +
+                "                    <Monitored>true</Monitored>\n" +
+                "                    <DataSource>"+ datasource +"</DataSource>\n" +
+                "                    <EstimatedCalls>\n";
+
+        String etXmlCalls = createEstimatedCalls(calls, delayPerStop);
+
+        String etXmlTail =
+                "                    </EstimatedCalls>\n" +
+                "                    <IsCompleteStopSequence>true</IsCompleteStopSequence>\n" +
+                "                </EstimatedVehicleJourney>\n" +
+                "            </EstimatedJourneyVersionFrame>\n" +
+                "        </EstimatedTimetableDelivery>\n" +
+                "    </ServiceDelivery>\n" +
+                "</Siri>";
+
+        return createSiriRecord(etXmlHead + etXmlCalls + etXmlTail);
+    }
+
+    /**
      * Bug 2 regression test (negative / guard path): when a DatedVehicleJourneyRef is present but
      * cannot be resolved (no FramedVehicleJourneyRef and the ServiceJourneyService lookup returns
      * a ServiceJourney with a null id), getEstimatedVehicleJourneyAsTripDescriptor never calls

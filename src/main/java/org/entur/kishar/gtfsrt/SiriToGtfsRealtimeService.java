@@ -511,7 +511,7 @@ public class SiriToGtfsRealtimeService {
                 String key = TripAndVehicleKey.fromTripIdServiceDateAndVehicleId(
                         builder.getTrip().getTripId(),
                         builder.getTrip().getStartDate(),
-                        builder.getVehicle().getId()
+                        null
                 ).toEntityId();
                 entity.setId(key);
 
