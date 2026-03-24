@@ -118,11 +118,16 @@ public class SiriToGtfsRealtimeService {
 
     @SuppressWarnings("unused")
     public String getStatus() {
-        ArrayList<String> status = new ArrayList<>();
-        status.add("tripUpdates: " + tripUpdates.getEntityList().size());
-        status.add("vehiclePositions: " + vehiclePositions.getEntityList().size());
-        status.add("alerts: " + alerts.getEntityList().size());
-        return status.toString();
+        readLock.lock();
+        try {
+            ArrayList<String> status = new ArrayList<>();
+            status.add("tripUpdates: " + tripUpdates.getEntityList().size());
+            status.add("vehiclePositions: " + vehiclePositions.getEntityList().size());
+            status.add("alerts: " + alerts.getEntityList().size());
+            return status.toString();
+        } finally {
+            readLock.unlock();
+        }
     }
 
     public Object getTripUpdates(String contentType, String datasource) {

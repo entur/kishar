@@ -399,6 +399,118 @@ public class TestConcurrencyAndThreadSafety extends SiriToGtfsRealtimeServiceTes
     }
 
     /**
+     * Test getStatus() is consistent when called concurrently with setTripUpdates/setVehiclePositions/setAlerts.
+     * Before the fix, the three volatile reads inside getStatus() were not atomic; a writer could
+     * interleave between reads and produce an inconsistent snapshot.  After the fix, getStatus()
+     * holds the readLock for the entire snapshot, so it must never throw and must always return
+     * a parseable list string.
+     */
+    @Test
+    public void testGetStatusIsConsistentUnderConcurrentWrites() throws InterruptedException {
+        // Seed initial data so the volatile fields are non-empty FeedMessages
+        Map<String, GtfsRealtime.FeedMessage> emptyByDatasource = new HashMap<>();
+        GtfsRealtime.FeedMessage seedMsg = GtfsRealtimeLibrary.createFeedMessageBuilder()
+                .addEntity(GtfsRealtime.FeedEntity.newBuilder()
+                        .setId("seed-1")
+                        .setTripUpdate(GtfsRealtime.TripUpdate.newBuilder()
+                                .setTrip(GtfsRealtime.TripDescriptor.newBuilder()
+                                        .setTripId("seed-trip-1")
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+        rtService.setTripUpdates(seedMsg, emptyByDatasource);
+        rtService.setVehiclePositions(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), emptyByDatasource);
+        rtService.setAlerts(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), emptyByDatasource);
+
+        int writerCount = 3;
+        int readerCount = 7;
+        int totalThreads = writerCount + readerCount;
+        int iterations = 200;
+
+        ExecutorService executor = Executors.newFixedThreadPool(totalThreads);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(totalThreads);
+        AtomicInteger errorCount = new AtomicInteger(0);
+        List<Future<?>> futures = new ArrayList<>();
+
+        // Writer threads: repeatedly swap the feed messages
+        for (int i = 0; i < writerCount; i++) {
+            final int threadId = i;
+            futures.add(executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    for (int j = 0; j < iterations; j++) {
+                        GtfsRealtime.FeedMessage msg = GtfsRealtimeLibrary.createFeedMessageBuilder()
+                                .addEntity(GtfsRealtime.FeedEntity.newBuilder()
+                                        .setId("w" + threadId + "-e" + j)
+                                        .setTripUpdate(GtfsRealtime.TripUpdate.newBuilder()
+                                                .setTrip(GtfsRealtime.TripDescriptor.newBuilder()
+                                                        .setTripId("trip-" + j)
+                                                        .build())
+                                                .build())
+                                        .build())
+                                .build();
+                        rtService.setTripUpdates(msg, emptyByDatasource);
+                        rtService.setVehiclePositions(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), emptyByDatasource);
+                        rtService.setAlerts(GtfsRealtimeLibrary.createFeedMessageBuilder().build(), emptyByDatasource);
+                    }
+                } catch (Exception e) {
+                    errorCount.incrementAndGet();
+                    System.err.println("getStatus writer error: " + e.getMessage());
+                } finally {
+                    doneLatch.countDown();
+                }
+                return null;
+            }));
+        }
+
+        // Reader threads: repeatedly call getStatus() and validate its format
+        for (int i = 0; i < readerCount; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    for (int j = 0; j < iterations; j++) {
+                        String status = rtService.getStatus();
+                        assertNotNull(status, "getStatus() must not return null");
+                        assertTrue(status.startsWith("[") && status.endsWith("]"),
+                                "getStatus() must return a list string, got: " + status);
+                        assertTrue(status.contains("tripUpdates:"),
+                                "getStatus() must contain tripUpdates field, got: " + status);
+                        assertTrue(status.contains("vehiclePositions:"),
+                                "getStatus() must contain vehiclePositions field, got: " + status);
+                        assertTrue(status.contains("alerts:"),
+                                "getStatus() must contain alerts field, got: " + status);
+                    }
+                } catch (Exception e) {
+                    errorCount.incrementAndGet();
+                    System.err.println("getStatus reader error: " + e.getMessage());
+                    e.printStackTrace();
+                } finally {
+                    doneLatch.countDown();
+                }
+                return null;
+            }));
+        }
+
+        startLatch.countDown(); // release all threads simultaneously
+        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+        assertTrue(completed, "All getStatus concurrency threads should complete within timeout");
+        assertEquals(0, errorCount.get(), "No errors should occur when calling getStatus() concurrently with writes");
+
+        for (Future<?> future : futures) {
+            try {
+                future.get(1, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                fail("getStatus concurrency future should complete successfully: " + e.getMessage());
+            }
+        }
+
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS), "Executor should terminate");
+    }
+
+    /**
      * Test GtfsRtMapper date formatting is thread-safe.
      * Verifies that concurrent calls to convertSiriToGtfsRt produce correct startDate strings.
      * With SimpleDateFormat this would corrupt internal state and produce garbled dates.
