@@ -17,6 +17,7 @@ package org.entur.kishar.gtfsrt;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.StringJoiner;
 
 public class TripAndVehicleKey implements Serializable {
 
@@ -68,6 +69,18 @@ public class TripAndVehicleKey implements Serializable {
     return Objects.equals(tripId, that.tripId) &&
             Objects.equals(serviceDate, that.serviceDate) &&
             Objects.equals(vehicleId, that.vehicleId);
+  }
+
+  public String toEntityId() {
+    StringJoiner joiner = new StringJoiner("-");
+    joiner.add(tripId != null ? tripId : "");
+    if (serviceDate != null && !serviceDate.isEmpty()) {
+      joiner.add(serviceDate);
+    }
+    if (vehicleId != null && !vehicleId.isEmpty()) {
+      joiner.add(vehicleId);
+    }
+    return joiner.toString();
   }
 
   @Override

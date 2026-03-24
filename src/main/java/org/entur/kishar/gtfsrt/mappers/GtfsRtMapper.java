@@ -214,6 +214,7 @@ public class GtfsRtMapper extends AvroHelper {
 
         FramedVehicleJourneyRefRecord fvjRef = mvj.getFramedVehicleJourneyRef();
         td.setTripId(fvjRef.getDatedVehicleJourneyRef().toString());
+        td.setStartDate(fvjRef.getDataFrameRef().toString());
 
         if (mvj.getLineRef() != null) {
             td.setRouteId( mvj.getLineRef().toString());

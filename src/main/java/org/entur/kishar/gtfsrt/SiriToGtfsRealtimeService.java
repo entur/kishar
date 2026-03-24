@@ -337,33 +337,9 @@ public class SiriToGtfsRealtimeService {
         return result;
     }
 
-    private String getTripIdForEstimatedVehicleJourney(TripUpdate.Builder tripUpdateBuilder) {
-        StringBuilder b = new StringBuilder();
-
-        b.append((tripUpdateBuilder.getTrip().getTripId()));
-        if (!tripUpdateBuilder.getTrip().getStartDate().isEmpty()) {
-            b.append('-');
-            b.append(tripUpdateBuilder.getTrip().getStartDate());
-        }
-
-        if (!tripUpdateBuilder.getVehicle().getId().isEmpty()) {
-            b.append('-');
-            b.append(tripUpdateBuilder.getVehicle().getId());
-        }
-        return b.toString();
-    }
-
     private void writeVehiclePositions() {
         FeedOutput output = buildFeedOutput(RedisService.Type.VEHICLE_POSITION);
         setVehiclePositions(output.feed(), output.byDatasource());
-    }
-
-    private String getVehicleIdForKey(TripAndVehicleKey key) {
-        if (key.getVehicleId() != null) {
-            return key.getVehicleId();
-        }
-        return key.getTripId() + "-"
-                + key.getServiceDate();
     }
 
     private void writeAlerts() {
@@ -449,11 +425,11 @@ public class SiriToGtfsRealtimeService {
                 }
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
-                String key = getVehicleIdForKey(getKey(
+                String key = getKey(
                         builder.getTrip().getTripId(),
                         builder.getTrip().getStartDate(),
                         activity.getMonitoredVehicleJourney().getVehicleRef())
-                );
+                        .toEntityId();
                 entity.setId(key);
 
                 entity.setVehicle(builder);
@@ -532,7 +508,11 @@ public class SiriToGtfsRealtimeService {
                 }
 
                 FeedEntity.Builder entity = FeedEntity.newBuilder();
-                String key = getTripIdForEstimatedVehicleJourney(builder);
+                String key = TripAndVehicleKey.fromTripIdServiceDateAndVehicleId(
+                        builder.getTrip().getTripId(),
+                        builder.getTrip().getStartDate(),
+                        builder.getVehicle().getId()
+                ).toEntityId();
                 entity.setId(key);
 
                 entity.setTripUpdate(builder);
