@@ -115,7 +115,7 @@ public class PubSubRoute extends RouteBuilder {
             ;
 
             from("direct:log.incoming.data")
-                .bean(metrics, "registerIncomingEntity(${header.type}, 1, false)")
+                .bean(metrics, "registerIncomingEntity(${header.type}, false)")
             ;
 
         }
