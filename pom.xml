@@ -33,8 +33,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>3.5.13</spring-boot-plugin.version>
-        <spring-boot.version>3.5.13</spring-boot.version>
+        <spring-boot-plugin.version>3.5.14</spring-boot-plugin.version>
+        <spring-boot.version>3.5.14</spring-boot.version>
 
         <camel.version>4.18.1</camel.version>
         <protobuf.version>4.34.1</protobuf.version>
