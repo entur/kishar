@@ -42,7 +42,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -128,27 +128,23 @@ public class AlertFactory extends AvroHelper {
         if (affectsRecord.getStopPoints() != null && !affectsRecord.getStopPoints().isEmpty()) {
             List<AffectedStopPointRecord> stopPoints = affectsRecord.getStopPoints();
 
-            if (stopPoints != null) {
-
-                for (AffectedStopPointRecord stopPoint : stopPoints) {
-                    if (stopPoint.getStopPointRef() == null) {
-                        continue;
-                    }
-                    String stopRef =  stopPoint.getStopPointRef().toString();
-                    serviceAlert.addInformedEntity(
-                            EntitySelector.newBuilder()
-                                    .setStopId(stopRef)
-                                    .build()
-                    );
+            for (AffectedStopPointRecord stopPoint : stopPoints) {
+                if (stopPoint.getStopPointRef() == null) {
+                    continue;
                 }
+                String stopRef =  stopPoint.getStopPointRef().toString();
+                serviceAlert.addInformedEntity(
+                        EntitySelector.newBuilder()
+                                .setStopId(stopRef)
+                                .build()
+                );
             }
         }
 
         if (affectsRecord.getVehicleJourneys() != null && !affectsRecord.getVehicleJourneys().isEmpty()) {
             List<AffectedVehicleJourneyRecord> vehicleJourneys = affectsRecord.getVehicleJourneys();
-            if (vehicleJourneys != null && !vehicleJourneys.isEmpty()) {
 
-                for (AffectedVehicleJourneyRecord affectedVehicleJourney : vehicleJourneys) {
+            for (AffectedVehicleJourneyRecord affectedVehicleJourney : vehicleJourneys) {
 
                     String routeId = null;
                     List<TripDescriptor> tripDescriptors = new ArrayList<>();
@@ -163,7 +159,7 @@ public class AlertFactory extends AvroHelper {
 
                         startDate = DATE_FORMATTER.format(
                                 LocalDate.ofInstant(getInstant(affectedVehicleJourney.getOriginAimedDepartureTime()),
-                                        ZoneId.systemDefault())
+                                        ZoneOffset.UTC)
                         );
                     }
 
@@ -258,7 +254,6 @@ public class AlertFactory extends AvroHelper {
                         }
                     }
                 }
-            }
         }
 
         if (affectsRecord.getNetworks() != null && !affectsRecord.getNetworks().isEmpty()) {
@@ -324,13 +319,20 @@ public class AlertFactory extends AvroHelper {
     private void handleUrls(PtSituationElementRecord ptSituation, Alert.Builder alert) {
         List<InfoLinkRecord> infoLinks = ptSituation.getInfoLinks();
         if (infoLinks != null) {
-            TranslatedString.Builder url = TranslatedString.newBuilder();
             for (InfoLinkRecord infoLinkRecord : infoLinks) {
-                TranslatedString.Translation.Builder translation = TranslatedString.Translation.newBuilder();
-                translation.setText(infoLinkRecord.getUri().toString());
-                url.addTranslation(translation);
+                if (infoLinkRecord.getUri() == null) {
+                    continue;
+                }
+                String uri = infoLinkRecord.getUri().toString();
+                if (uri.isBlank()) {
+                    continue;
+                }
+                TranslatedString url = TranslatedString.newBuilder()
+                        .addTranslation(TranslatedString.Translation.newBuilder().setText(uri))
+                        .build();
+                alert.setUrl(url);
+                return; // Use only the first valid URL
             }
-            alert.setUrl(url);
         }
     }
 }

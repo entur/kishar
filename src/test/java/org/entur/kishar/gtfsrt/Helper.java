@@ -17,6 +17,31 @@ public class Helper {
     static String summaryValue = "Situation summary";
     static String descriptionValue = "Situation description";
 
+    /**
+     * Creates a minimal PtSituationElement JAXB object that can be further customised
+     * before conversion to Avro. Unlike {@link #createPtSituationElement} this does not
+     * add any affects, so the caller is free to add only what is needed for the test.
+     */
+    static PtSituationElement createBasicPtSituationElement(String datasource) {
+        PtSituationElement siriSituation = new PtSituationElement();
+        SituationNumber situationNumber = new SituationNumber();
+        situationNumber.setValue(situationNumberValue);
+        RequestorRef participant = new RequestorRef();
+        participant.setValue(datasource);
+        siriSituation.setParticipantRef(participant);
+        siriSituation.setReportType(ReportTypeEnumeration.GENERAL);
+        siriSituation.setSituationNumber(situationNumber);
+
+        DefaultedTextStructure summary = new DefaultedTextStructure();
+        summary.setValue(summaryValue);
+        DefaultedTextStructure description = new DefaultedTextStructure();
+        description.setValue(descriptionValue);
+        description.setLang("no");
+        siriSituation.getSummaries().add(summary);
+        siriSituation.getDescriptions().add(description);
+        return siriSituation;
+    }
+
     static PtSituationElementRecord createPtSituationElement(String datasource) {
 
         PtSituationElement siriSituation = new PtSituationElement();
