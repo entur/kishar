@@ -33,12 +33,12 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>4.0.6</spring-boot-plugin.version>
-        <spring-boot.version>4.0.6</spring-boot.version>
+        <spring-boot-plugin.version>4.0.7</spring-boot-plugin.version>
+        <spring-boot.version>4.0.7</spring-boot.version>
 
         <camel.version>4.20.0</camel.version>
-        <protobuf.version>4.34.1</protobuf.version>
-        <rest-assured.version>6.0.0</rest-assured.version>
+        <protobuf.version>4.34.2</protobuf.version>
+        <rest-assured.version>6.0.1</rest-assured.version>
     </properties>
 
     <dependencyManagement>
@@ -288,7 +288,7 @@
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <version>3.5.1</version>
+                <version>3.5.2</version>
                 <dependencies>
                     <!-- Include jib-spring-boot-extension-maven to prevent spring-boot-devtools from being packaged.-->
                     <dependency>
