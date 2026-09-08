@@ -33,11 +33,11 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <spring-boot-plugin.version>4.0.8</spring-boot-plugin.version>
-        <spring-boot.version>4.0.8</spring-boot.version>
+        <spring-boot-plugin.version>4.1.1</spring-boot-plugin.version>
+        <spring-boot.version>4.1.1</spring-boot.version>
 
-        <camel.version>4.20.0</camel.version>
-        <protobuf.version>4.34.2</protobuf.version>
+        <camel.version>4.22.0</camel.version>
+        <protobuf.version>4.36.1</protobuf.version>
         <rest-assured.version>6.0.1</rest-assured.version>
     </properties>
 
@@ -163,7 +163,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.6.0-jre</version>
+            <version>33.7.1-jre</version>
         </dependency>
 
         <!-- testing -->
