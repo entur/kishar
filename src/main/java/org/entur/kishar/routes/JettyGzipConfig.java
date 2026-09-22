@@ -14,23 +14,22 @@
  */
 package org.entur.kishar.routes;
 
-import org.apache.camel.builder.RouteBuilder;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.eclipse.jetty.server.handler.gzip.GzipHandler;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-@Component
-public class RestRouteBuilder extends RouteBuilder {
+/**
+ * Provides the Jetty handler that {@link RestRouteBuilder} wires into its shared
+ * restConfiguration() via the "handlers" endpoint property, so that GTFS-RT feed
+ * responses are gzip-compressed whenever the client sends Accept-Encoding: gzip.
+ */
+@Configuration
+public class JettyGzipConfig {
 
-    @Value("${kishar.incoming.port:8888}")
-    private int portNumber;
-
-    @Override
-    public void configure() {
-
-        restConfiguration()
-                .component("jetty")
-                .port(portNumber)
-                .endpointProperty("handlers", "#gzipHandler");
-
+    @Bean(name = "gzipHandler")
+    public GzipHandler gzipHandler() {
+        GzipHandler gzipHandler = new GzipHandler();
+        gzipHandler.setMinGzipSize(0);
+        return gzipHandler;
     }
 }
