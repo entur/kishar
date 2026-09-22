@@ -39,6 +39,8 @@
         <camel.version>4.20.0</camel.version>
         <protobuf.version>4.34.2</protobuf.version>
         <rest-assured.version>6.0.1</rest-assured.version>
+        <!-- Must track the jetty-server version that camel-jetty pulls in transitively -->
+        <jetty.version>12.1.12</jetty.version>
     </properties>
 
     <dependencyManagement>
@@ -145,6 +147,18 @@
             <groupId>org.apache.camel</groupId>
             <artifactId>camel-jetty</artifactId>
             <version>${camel.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty.compression</groupId>
+            <artifactId>jetty-compression-server</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.eclipse.jetty.compression</groupId>
+            <artifactId>jetty-compression-gzip</artifactId>
+            <version>${jetty.version}</version>
         </dependency>
 
         <dependency>

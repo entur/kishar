@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalToIgnoringCase;
 
 public class TestRestEndpoints extends SiriToGtfsRealtimeServiceTest{
 
@@ -43,5 +44,16 @@ public class TestRestEndpoints extends SiriToGtfsRealtimeServiceTest{
                 .get("/api/vehicle-positions")
                 .then()
                 .statusCode(200);
+    }
+
+    @Test
+    public void testTripUpdatesGzipCompression() {
+        given()
+                .header("Accept-Encoding", "gzip")
+                .when()
+                .get("/api/trip-updates")
+                .then()
+                .statusCode(200)
+                .header("Content-Encoding", equalToIgnoringCase("gzip"));
     }
 }

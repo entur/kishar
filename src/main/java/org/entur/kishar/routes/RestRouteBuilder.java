@@ -29,7 +29,8 @@ public class RestRouteBuilder extends RouteBuilder {
 
         restConfiguration()
                 .component("jetty")
-                .port(portNumber);
+                .port(portNumber)
+                .endpointProperty("handlers", "#compressionHandler");
 
     }
 }
