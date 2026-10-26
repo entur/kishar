@@ -99,7 +99,8 @@ public class AvroHelper {
         } else if (pos == length - 6 && (s.charAt(pos) == '+' || s.charAt(pos) == '-') && s.charAt(pos + 3) == ':') {
             int offsetHours = digits(s, pos + 1, 2);
             int offsetMinutes = digits(s, pos + 4, 2);
-            if (offsetHours < 0 || offsetHours > 18 || offsetMinutes < 0 || offsetMinutes > 59) {
+            if (offsetHours < 0 || offsetMinutes < 0 || offsetMinutes > 59
+                    || offsetHours > 18 || (offsetHours == 18 && offsetMinutes > 0)) {
                 return null;
             }
             offsetSeconds = offsetHours * 3600 + offsetMinutes * 60;

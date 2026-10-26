@@ -70,6 +70,8 @@ public class TestAvroHelper {
             "2026-10-26T14:17:36",
             "2026-10-26T14:17:36+0100",
             "2026-10-26 14:17:36Z",
+            "2026-10-26T14:17:36+18:01",
+            "2026-10-26T14:17:36-18:01",
     })
     public void testGetInstantRejectsInvalidTimestamps(String timestamp) {
         assertThrows(DateTimeParseException.class, () -> Instant.parse(timestamp));
