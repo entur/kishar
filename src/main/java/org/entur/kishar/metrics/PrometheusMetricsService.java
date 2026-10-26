@@ -15,6 +15,7 @@
 
 package org.entur.kishar.metrics;
 
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.ImmutableTag;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
@@ -28,6 +29,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class PrometheusMetricsService extends PrometheusMeterRegistry {
@@ -40,6 +43,9 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
     private final String DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME = METRICS_PREFIX + "data.filtered.entities";
 
     private final String GTFSRT_ENTITIES_TOTAL = METRICS_PREFIX + "gtfsrt.entitites.total";
+
+    private final Map<String, Counter> parsedEntityCounters = new ConcurrentHashMap<>();
+    private final Map<String, Counter> filteredEntityCounters = new ConcurrentHashMap<>();
 
     public PrometheusMetricsService() {
         super(PrometheusConfig.DEFAULT);
@@ -58,13 +64,10 @@ public class PrometheusMetricsService extends PrometheusMeterRegistry {
     }
 
     public void registerIncomingEntity(String dataType, Boolean filtered) {
-        List<Tag> counterTags = new ArrayList<>();
-        counterTags.add(new ImmutableTag("dataType", dataType));
-
         if (filtered) {
-            counter(DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment();
+            filteredEntityCounters.computeIfAbsent(dataType, type -> counter(DATA_FILTERED_ENTITIES_TOTAL_COUNTER_NAME, "dataType", type)).increment();
         } else {
-            counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, counterTags).increment();
+            parsedEntityCounters.computeIfAbsent(dataType, type -> counter(DATA_PARSED_ENTITIES_TOTAL_COUNTER_NAME, "dataType", type)).increment();
         }
     }
 
