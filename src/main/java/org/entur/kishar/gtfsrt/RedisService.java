@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -101,7 +102,7 @@ public class RedisService {
                     type.getMapIdentifier(),
                     () -> CacheBuilder.newBuilder()
                         .maximumSize(50000)  // Max 50k entities per type (high traffic)
-                        .expireAfterWrite(1, TimeUnit.HOURS)
+                        .expireAfterWrite(Duration.ofHours(1))
                         .build()
                 );
                 for (Map.Entry<String, GtfsRtData> entry : gtfsRt.entrySet()) {

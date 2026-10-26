@@ -15,11 +15,15 @@
  */
 package org.entur.kishar.gtfsrt;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.StringJoiner;
 
 public class TripAndVehicleKey implements Serializable {
+
+  @Serial
+  private static final long serialVersionUID = 1L;
 
   private final String tripId;
 

@@ -62,6 +62,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.trip.updates")
                     .process( p -> {
+                        @SuppressWarnings("unchecked")
                         final Map<String, GtfsRtData> tripUpdate = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtTripUpdates(tripUpdate);
                     })
@@ -79,6 +80,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.vehicle.positions")
                     .process( p -> {
+                        @SuppressWarnings("unchecked")
                         final Map<String, GtfsRtData> vehiclePosition = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtVehiclePosition(vehiclePosition);
                         p.getMessage().setBody(vehiclePosition.keySet());
@@ -99,6 +101,7 @@ public class PubSubRoute extends RouteBuilder {
 
             from ("direct:register.gtfs.rt.alerts")
                     .process( p -> {
+                        @SuppressWarnings("unchecked")
                         final Map<String, GtfsRtData> alert = p.getIn().getBody(Map.class);
                         siriToGtfsRealtimeService.registerGtfsRtAlerts(alert);
                     })
