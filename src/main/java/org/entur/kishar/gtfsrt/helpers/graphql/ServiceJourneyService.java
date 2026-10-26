@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class ServiceJourneyService {
@@ -25,7 +24,7 @@ public class ServiceJourneyService {
 
     private final LoadingCache<String, ServiceJourney> datedServiceJourneyCache = CacheBuilder.newBuilder()
             .maximumSize(10000)  // Limit to 10k service journeys (high traffic)
-            .expireAfterAccess(1, TimeUnit.HOURS)
+            .expireAfterAccess(Duration.ofHours(1))
             .build(new CacheLoader<>() {
                 @Override
                 public ServiceJourney load(String datedServiceJourneyId) {

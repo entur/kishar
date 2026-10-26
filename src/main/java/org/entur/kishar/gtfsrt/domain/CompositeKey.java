@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 
 @SuppressWarnings("unused")
 public class CompositeKey implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     private String id;
 
@@ -23,10 +26,6 @@ public class CompositeKey implements Serializable {
 
     private CompositeKey() {
         //Needed for Jackson unmarshalling
-    }
-
-    public static CompositeKey reCreate(byte[] input) {
-        return create(new String(input, StandardCharsets.UTF_8));
     }
 
     public static CompositeKey create(String input) {

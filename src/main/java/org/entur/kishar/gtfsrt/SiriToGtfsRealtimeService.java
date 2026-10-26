@@ -17,7 +17,6 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Duration;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.transit.realtime.GtfsRealtime.Alert;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
@@ -37,6 +36,7 @@ import org.entur.avro.realtime.siri.model.ValidityPeriodRecord;
 import org.entur.avro.realtime.siri.model.VehicleActivityRecord;
 import org.entur.avro.realtime.siri.model.VehicleMonitoringDeliveryRecord;
 import org.entur.kishar.gtfsrt.domain.CompositeKey;
+import org.entur.kishar.gtfsrt.domain.FeedEntityCache;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.entur.kishar.gtfsrt.helpers.SiriLibrary;
 import org.entur.kishar.gtfsrt.helpers.graphql.ServiceJourneyService;
@@ -50,6 +50,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
@@ -93,6 +94,11 @@ public class SiriToGtfsRealtimeService {
     private volatile Map<String, FeedMessage> alertsByDatasource = Maps.newHashMap();
 
     private final GtfsRtMapper gtfsMapper;
+
+    private final Map<RedisService.Type, FeedEntityCache> feedEntityCaches = new EnumMap<>(Map.of(
+            RedisService.Type.TRIP_UPDATE, new FeedEntityCache(),
+            RedisService.Type.VEHICLE_POSITION, new FeedEntityCache(),
+            RedisService.Type.ALERT, new FeedEntityCache()));
 
     public SiriToGtfsRealtimeService(@Autowired AlertFactory alertFactory,
                                      @Autowired RedisService redisService,
@@ -308,22 +314,11 @@ public class SiriToGtfsRealtimeService {
 
         Map<String, byte[]> entityMap = redisService.readGtfsRtMap(type);
 
-        for (Map.Entry<String, byte[]> entry : entityMap.entrySet()) {
-            CompositeKey key = CompositeKey.create(entry.getKey());
-            if (key == null) {
-                continue;
-            }
-            FeedEntity entity;
-            try {
-                entity = FeedEntity.parseFrom(entry.getValue());
-            } catch (InvalidProtocolBufferException e) {
-                LOG.error("Invalid feed entity from redis with key: {}", key, e);
-                continue;
-            }
-            feedMessageBuilder.addEntity(entity);
+        for (FeedEntityCache.CachedEntity cached : feedEntityCaches.get(type).update(entityMap)) {
+            feedMessageBuilder.addEntity(cached.entity());
             byDatasource
-                .computeIfAbsent(key.getDatasource(), k -> createFeedMessageBuilder())
-                .addEntity(entity);
+                .computeIfAbsent(cached.datasource(), k -> createFeedMessageBuilder())
+                .addEntity(cached.entity());
         }
 
         return new FeedOutput(feedMessageBuilder.build(), buildFeedMessageMap(byDatasource));
