@@ -383,6 +383,9 @@ public class GtfsRtMapper extends AvroHelper {
 
     private Integer calculateDelay(CharSequence aimed, CharSequence expected) {
         if (aimed != null && expected != null) {
+            if (CharSequence.compare(aimed, expected) == 0) {
+                return 0;
+            }
             return (int) Duration.between(getInstant(aimed), getInstant(expected)).getSeconds();
         }
         return null;
