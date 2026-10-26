@@ -2,7 +2,6 @@ package org.entur.kishar.gtfsrt;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.entur.kishar.gtfsrt.domain.CompositeKey;
 import org.entur.kishar.gtfsrt.domain.GtfsRtData;
 import org.redisson.Redisson;
 import org.redisson.api.RMapCache;
@@ -118,14 +117,10 @@ public class RedisService {
         if (redisEnabled) {
             RMapCache<byte[], byte[]> gtfsRtMap = redisson.getMapCache(type.getMapIdentifier(), ByteArrayCodec.INSTANCE);
 
-            Map<String, byte[]> result = new HashMap<>();
-
             final Set<Map.Entry<byte[], byte[]>> entries = gtfsRtMap.readAllEntrySet();
+            Map<String, byte[]> result = new HashMap<>(entries.size() * 4 / 3 + 1);
             for (Map.Entry<byte[], byte[]> entry : entries) {
-                final CompositeKey key = CompositeKey.reCreate(entry.getKey());
-                if (key != null) {
-                    result.put(key.asString(), entry.getValue());
-                }
+                result.put(new String(entry.getKey(), StandardCharsets.UTF_8), entry.getValue());
             }
 
             return result;
