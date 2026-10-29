@@ -313,7 +313,7 @@
                 </dependencies>
                 <configuration>
                     <from>
-                        <image>eclipse-temurin:21.0.1_12-jdk-alpine</image>
+                        <image>bellsoft/liberica-openjdk-alpine:21.0.13.0.3-5</image>
                     </from>
                     <to>
                         <image>${env.CONTAINER_REPO}</image>
