@@ -1,4 +1,4 @@
-FROM eclipse-temurin:25.0.4_7-jdk-jammy
+FROM bellsoft/liberica-openjdk-debian:25.0.5.0.3-5
 
 RUN addgroup appuser && adduser --disabled-password appuser --ingroup appuser
 USER appuser
