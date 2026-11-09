@@ -246,10 +246,9 @@ public class SiriToGtfsRealtimeService {
 
         if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
             checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
-        } else if (Boolean.TRUE.equals(estimatedVehicleJourney.getExtraJourney())) {
-            LOG.info("Ignoring - ExtraJourney not supported");
-            throw new IllegalArgumentException("ExtraJourney not supported");
         } else {
+            // ExtraJourneys are valid SIRI, but not supported in GTFS-RT output - skip quietly (logged at debug)
+            Preconditions.checkState(!Boolean.TRUE.equals(estimatedVehicleJourney.getExtraJourney()), "ExtraJourney not supported");
             Preconditions.checkNotNull(estimatedVehicleJourney.getDatedVehicleJourneyRef());
         }
 
