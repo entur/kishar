@@ -613,6 +613,22 @@ public class TestSiriETToGtfsRealtimeService extends SiriToGtfsRealtimeServiceTe
         assertEquals(datedVehicleJourneyRef, tripUpdate.getTrip().getTripId());
     }
 
+    @Test
+    public void testExtraJourneyIsSkippedWithoutError() throws Exception {
+        SiriRecord siri = createSiriEtDelivery("TST:Line:1234", 1, 30, "TST:ServiceJourney:5678", "TST");
+        EstimatedVehicleJourneyRecord evj = siri.getServiceDelivery()
+                .getEstimatedTimetableDeliveries().get(0)
+                .getEstimatedJourneyVersionFrames().get(0)
+                .getEstimatedVehicleJourneys().get(0);
+
+        evj.setFramedVehicleJourneyRef(null);
+        evj.setDatedVehicleJourneyRef("TST:ServiceJourney:extra");
+        evj.setExtraJourney(true);
+
+        Map<String, GtfsRtData> result = rtService.convertSiriEtToGtfsRt(evj);
+        assertTrue(result.isEmpty(), "ExtraJourney should be skipped");
+    }
+
     /**
      * Issue #6 regression test: the ET cache key must be derived from the source VehicleRef field,
      * not from the protobuf builder's getVehicle().getId() which returns an empty string when no

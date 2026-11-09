@@ -17,6 +17,7 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Duration;
+import com.google.protobuf.UninitializedMessageException;
 import com.google.transit.realtime.GtfsRealtime.Alert;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
@@ -246,10 +247,9 @@ public class SiriToGtfsRealtimeService {
 
         if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null) {
             checkPreconditions(estimatedVehicleJourney.getFramedVehicleJourneyRef());
-        } else if (Boolean.TRUE.equals(estimatedVehicleJourney.getExtraJourney())) {
-            LOG.info("Ignoring - ExtraJourney not supported");
-            throw new IllegalArgumentException("ExtraJourney not supported");
         } else {
+            // ExtraJourneys are valid SIRI, but not supported in GTFS-RT output - skip quietly (logged at debug)
+            Preconditions.checkState(!Boolean.TRUE.equals(estimatedVehicleJourney.getExtraJourney()), "ExtraJourney not supported");
             Preconditions.checkNotNull(estimatedVehicleJourney.getDatedVehicleJourneyRef());
         }
 
@@ -564,6 +564,19 @@ public class SiriToGtfsRealtimeService {
                         ? estimatedVehicleJourney.getDataSource().toString()
                         : "unknown";
                 LOG.debug("Skipping trip update from {}: {}", id, e.getMessage());
+            } catch (UninitializedMessageException e) {
+                String codespace = estimatedVehicleJourney.getDataSource() != null
+                        ? estimatedVehicleJourney.getDataSource().toString()
+                        : "unknown";
+                String journeyCode;
+                if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null && estimatedVehicleJourney.getFramedVehicleJourneyRef().getDatedVehicleJourneyRef() != null) {
+                    journeyCode = estimatedVehicleJourney.getFramedVehicleJourneyRef().getDatedVehicleJourneyRef().toString();
+                } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
+                    journeyCode = estimatedVehicleJourney.getDatedVehicleJourneyRef().toString();
+                } else {
+                    journeyCode = "unknown";
+                }
+                LOG.info("Unknown trip from {}: {}", codespace, journeyCode);
             } catch (Exception e) {
                 String id = estimatedVehicleJourney.getDataSource() != null
                         ? estimatedVehicleJourney.getDataSource().toString()
