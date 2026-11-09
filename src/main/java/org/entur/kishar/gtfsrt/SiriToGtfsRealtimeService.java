@@ -17,6 +17,7 @@ package org.entur.kishar.gtfsrt;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import com.google.protobuf.Duration;
+import com.google.protobuf.UninitializedMessageException;
 import com.google.transit.realtime.GtfsRealtime.Alert;
 import com.google.transit.realtime.GtfsRealtime.FeedEntity;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
@@ -563,6 +564,19 @@ public class SiriToGtfsRealtimeService {
                         ? estimatedVehicleJourney.getDataSource().toString()
                         : "unknown";
                 LOG.debug("Skipping trip update from {}: {}", id, e.getMessage());
+            } catch (UninitializedMessageException e) {
+                String codespace = estimatedVehicleJourney.getDataSource() != null
+                        ? estimatedVehicleJourney.getDataSource().toString()
+                        : "unknown";
+                String journeyCode;
+                if (estimatedVehicleJourney.getFramedVehicleJourneyRef() != null && estimatedVehicleJourney.getFramedVehicleJourneyRef().getDatedVehicleJourneyRef() != null) {
+                    journeyCode = estimatedVehicleJourney.getFramedVehicleJourneyRef().getDatedVehicleJourneyRef().toString();
+                } else if (estimatedVehicleJourney.getDatedVehicleJourneyRef() != null) {
+                    journeyCode = estimatedVehicleJourney.getDatedVehicleJourneyRef().toString();
+                } else {
+                    journeyCode = "unknown";
+                }
+                LOG.info("Unknown trip from {}: {}", codespace, journeyCode);
             } catch (Exception e) {
                 String id = estimatedVehicleJourney.getDataSource() != null
                         ? estimatedVehicleJourney.getDataSource().toString()
