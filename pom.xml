@@ -40,7 +40,7 @@
         <protobuf.version>4.36.2</protobuf.version>
         <rest-assured.version>6.3.0</rest-assured.version>
         <!-- Must track the jetty-server version that camel-jetty pulls in transitively -->
-        <jetty.version>12.1.14</jetty.version>
+        <jetty.version>12.1.15</jetty.version>
     </properties>
 
     <dependencyManagement>
